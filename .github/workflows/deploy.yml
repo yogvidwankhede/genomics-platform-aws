@@ -20,6 +20,10 @@ jobs:
   dev:
     if: vars.AWS_DEPLOY_ENABLED == 'true'
     uses: ./.github/workflows/apply.yml
+    # a called workflow can only get the permissions its caller job grants
+    permissions:
+      contents: read
+      id-token: write
     with:
       environment: dev
     secrets: inherit
@@ -28,6 +32,10 @@ jobs:
     needs: dev
     if: vars.AWS_DEPLOY_ENABLED == 'true'
     uses: ./.github/workflows/apply.yml
+    # a called workflow can only get the permissions its caller job grants
+    permissions:
+      contents: read
+      id-token: write
     with:
       environment: prod
     secrets: inherit
