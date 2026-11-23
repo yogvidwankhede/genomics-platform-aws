@@ -46,8 +46,8 @@ tf-lint: ## tflint (AWS ruleset) via the pinned container
 	docker run --rm -v "$$PWD:/data" -w /data/infra -e TFLINT_PLUGIN_DIR=/data/.tflint.d $(TFLINT_IMAGE) --init --config /data/.tflint.hcl
 	docker run --rm -v "$$PWD:/data" -w /data/infra -e TFLINT_PLUGIN_DIR=/data/.tflint.d $(TFLINT_IMAGE) --recursive --config /data/.tflint.hcl
 
-tf-sec: ## checkov static security scan
-	checkov -d infra --framework terraform --quiet --compact
+tf-sec: ## checkov static security scan (pinned 3.4.6 from .venv, same as CI)
+	$(if $(wildcard .venv/bin/checkov),.venv/bin/checkov,checkov) -d infra --framework terraform --quiet --compact
 
 tf-test: ## terraform test (mocked AWS provider, offline plans)
 	for d in infra/platform infra/modules/batch infra/modules/storage; do \

@@ -8,3 +8,4 @@ mangum==0.22.0
 pydantic==2.14.4
 httpx==0.28.1
 ruff==0.17.6
+checkov==3.4.6
