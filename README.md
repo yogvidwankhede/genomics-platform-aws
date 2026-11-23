@@ -1,34 +1,65 @@
-# genomics-platform-aws
+<h1 align="center">genomics-platform-aws</h1>
 
-[![ci](https://github.com/yogvidwankhede/genomics-platform-aws/actions/workflows/ci.yml/badge.svg)](https://github.com/yogvidwankhede/genomics-platform-aws/actions/workflows/ci.yml)
+<p align="center">
+  <b>Event-driven germline variant calling on Nextflow, Terraform and AWS Batch, with a reproducible, statistically rigorous GIAB benchmark.</b>
+</p>
 
-An event-driven germline variant-calling platform: a **Nextflow DSL2** pipeline validated
-against the **GIAB HG001** truth set with **hap.py**, running on **AWS Batch (Spot)** in a
-NAT-less VPC built with **Terraform**, triggered by S3 uploads, and shipped through
-**GitHub Actions with OIDC**.
+<p align="center">
+  <a href="https://github.com/yogvidwankhede/genomics-platform-aws/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/yogvidwankhede/genomics-platform-aws/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Nextflow" src="https://img.shields.io/badge/nextflow-DSL2%20%E2%89%A525.10-23aa62">
+  <img alt="nf-test" src="https://img.shields.io/badge/tested%20with-nf--test-1f6feb">
+  <img alt="Terraform" src="https://img.shields.io/badge/terraform-%E2%89%A51.10-7b42bc">
+  <img alt="AWS" src="https://img.shields.io/badge/AWS-Batch%20Spot%20%C2%B7%20Lambda%20%C2%B7%20EventBridge-ff9900">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.13-3776ab">
+  <img alt="Code style: ruff" src="https://img.shields.io/badge/code%20style-ruff-d7ff64">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
+</p>
 
-> **Status:** built, tested, and **run end to end on AWS** (a new Free-plan account, Batch Spot,
-> 2026-11-23), then torn down. Every number below comes from [RESULTS.md](RESULTS.md), which
-> records where each one was measured. The research benchmark (M7) is in
-> [docs/report.md](docs/report.md).
+<p align="center">
+  <a href="#highlights">Highlights</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#quickstart-local-no-aws">Quickstart</a> ·
+  <a href="#research-benchmark">Research</a> ·
+  <a href="#deploying-to-aws">Deploy</a> ·
+  <a href="#security-model">Security</a> ·
+  <a href="#cost">Cost</a> ·
+  <a href="docs/README.md">Docs</a>
+</p>
 
-## Headline results
+A production-style genomics platform: an uploaded samplesheet goes **S3 → EventBridge → Lambda →
+AWS Batch (Spot)**. There, an offline Nextflow head job runs
+**FastQC/fastp → BWA-MEM2 → MarkDuplicates → GATK HaplotypeCaller and/or DeepVariant → bcftools
+→ hap.py vs GIAB → MultiQC** in a NAT-less VPC. Run state is tracked in **DynamoDB** and served
+by an **IAM-authenticated API**. Everything is **Terraform**, shipped through **GitHub Actions
+with OIDC**, and documented like a platform team would (runbook, ADRs, post-mortem, cost model).
 
-GIAB HG001, chr20:10-12 Mb, 30x HiSeq X, NISTv4.2.1 truth, hap.py on PASS calls:
+> Every number in this README was measured and is traceable in **[RESULTS.md](RESULTS.md)**
+> (local, CI, or AWS). Anything not measured is labelled as such.
 
-| Caller | Where | SNP F1 | INDEL F1 | Wall time |
-|---|---|---:|---:|---:|
-| GATK HaplotypeCaller 4.7.0.0 | laptop (Docker) | 0.9981 | 0.9802 | 1 m 57 s |
-| GATK HaplotypeCaller 4.7.0.0 | **AWS Batch Spot**, event-triggered platform | **0.9981** | **0.9802** | 11 m 44 s |
-| DeepVariant 1.10.0 | laptop (Docker) | 0.9992 | 0.9876 | n/a |
+## Highlights
 
-- **AWS vs local:** identical hap.py results from the same FASTQs.
-- **AWS wall time:** 88% of task time on AWS was scheduling, instance start-up and S3 staging,
-  which is the real cost driver at this data size.
-- **Resume:** a rerun was served entirely from the S3 task cache (14/14 cached, 14.5 s).
-- **Teardown:** the stack was destroyed with one command (142 resources).
-- **Post-mortem:** what broke on the first real deployment and how each issue is now guarded:
-  [docs/postmortem-first-aws-deployment.md](docs/postmortem-first-aws-deployment.md).
+**Research findings** ([full report](docs/report.md); 4 GIAB samples, 56 call sets, block-bootstrap CIs):
+
+| Finding | Evidence |
+|---|---|
+| At ~30x, GATK and DeepVariant are **statistically indistinguishable** on the same variants | SNP F1 0.996–0.9996, INDEL F1 0.980–0.997; paired exact McNemar p ≥ 0.125 for all 4 samples |
+| DeepVariant's advantage is a **low-coverage effect** | significant in every replicate at 5x and 10x (p ≤ 0.005); at 5x INDEL F1 +7–9 points |
+| **94–100% of SNP errors** sit in GIAB difficult regions (10% of the sequence) | low-mappability SNP F1 0.85 (GATK) vs 0.94 (DeepVariant) |
+| Trio Mendelian errors attributable to the caller: **GATK 3, DeepVariant 1** | 13 further violations are shared with the independent truth sets (sample-level, not caller error) |
+| DeepVariant costs about **2.1x** GATK's CPU per sample, and its cost barely falls with depth | Nextflow traces, 8.45 CPU-h for the full matrix |
+
+**Platform, measured on a real AWS account** (Batch Spot, Free plan, then torn down):
+
+| | |
+|---|---|
+| GIAB HG001 on AWS | SNP F1 **0.9981**, INDEL F1 **0.9802**, identical to the local run; 14/14 tasks, 11 m 44 s |
+| Event-driven chain | S3 upload → EventBridge → Lambda → DynamoDB → Batch → status Lambda, working end to end |
+| Resume from the S3 task cache | 14/14 tasks cached, **14.5 s** instead of 11 m 44 s |
+| API | SigV4-signed requests get 200; **unsigned requests get 403** |
+| Teardown | `make destroy`: **142 resources destroyed**, verified empty |
+| Hardening from the real deployment | 9 defects found only in the cloud, each fixed with a regression guard ([post-mortem](docs/postmortem-first-aws-deployment.md)) |
+
+<p align="center"><img src="docs/figures/fig1_titration.png" width="760" alt="F1 vs coverage for GATK and DeepVariant"></p>
 
 ## Architecture
 
@@ -66,7 +97,8 @@ flowchart LR
 | API | `services/api` | FastAPI on Lambda: `/runs`, `/runs/{id}`, `/runs/{id}/qc`, `/runs/{id}/variants` |
 | Head image | `containers/nextflow-head` | Nextflow 26.10.7 with pipeline and plugins baked in; `NXF_OFFLINE=true` |
 | CI/CD | `.github/workflows` | PR gate, OIDC plan comments, gated apply, release-please |
-| Ops | `docs/` | [runbook](docs/runbook.md), [ADRs](docs/adr), [cost model](docs/cost-model.md), [branch protection](docs/branch-protection.md) |
+| Research | `research/` | experiment design, reproducibility runs, `gp_research` statistics (bootstrap, McNemar, Mendelian) |
+| Ops | `docs/` | [runbook](docs/runbook.md), [ADRs](docs/adr/README.md), [cost model](docs/cost-model.md), [post-mortem](docs/postmortem-first-aws-deployment.md), [report](docs/report.md) |
 
 ## Quickstart (local, no AWS)
 
@@ -101,29 +133,33 @@ Results land in `data/runs/benchmark-local-<caller>/`: `benchmark/HG001/*.summar
 (hap.py), `multiqc/multiqc_report.html`, `summary/HG001.run_summary.json`, and
 `pipeline_info/` (trace, timeline, report, DAG).
 
-## Research benchmark (M7)
+## Research benchmark
 
 The pipeline runs the whole experiment matrix (samples × depths × seeds × callers) as **one
 Nextflow run**: each samplesheet row can carry its own truth set and a seeded downsampling
-fraction, and `--caller gatk,deepvariant` calls the same alignments with both callers. The
-experiment covers:
+fraction, and `--caller gatk,deepvariant` calls the same alignments with both callers.
 
-- **Samples:** HG001 plus the GIAB Ashkenazi trio (HG002/HG003/HG004), 28 alignments and
-  56 call sets in total.
-- **Coverage titration:** 5x, 10x, 15x, 20x and 30x, with 3 seeds at each downsampled depth.
-- **Statistics:** GIAB v3.6 difficult-region stratification, block-bootstrap 95% CIs, exact
-  McNemar paired tests, and trio Mendelian consistency.
-- **Cost and reproducibility:** cost vs accuracy from Nextflow traces; reproducibility checks
-  across reruns, thread counts, BWA-MEM2 `-K`, and laptop vs AWS.
+| Design | |
+|---|---|
+| Samples | HG001 and the GIAB Ashkenazi trio HG002/HG003/HG004 (30x HiSeq X, chr20:10–12 Mb, NISTv4.2.1 truth) |
+| Coverage titration | 5x, 10x, 15x, 20x (3 seeds each) and 30x; 28 alignments, 56 call sets, 448 tasks |
+| Statistics | GIAB v3.6 stratifications, 50 kb block-bootstrap 95% CIs, exact McNemar paired tests, trio Mendelian decomposition |
+| Cost and reproducibility | CPU-hours from Nextflow traces; repeat, thread-count, BWA-MEM2 `-K` and laptop-vs-AWS comparisons |
 
-Write-up: [docs/report.md](docs/report.md). Everything runs locally at $0 cloud cost:
+Reproduce everything locally ($0 cloud cost; several hours on a laptop):
 
 ```bash
 make research
 ```
 
-`make research` runs data → matrix → reproducibility → tables and figures (several hours on a
-laptop). `make test-research` runs the statistics unit tests.
+Run the statistics unit tests:
+
+```bash
+make test-research
+```
+
+Code lives in [`research/`](research) (data fetch, pre-registered design, `gp_research`
+statistics package with tests). The write-up is [`docs/report.md`](docs/report.md).
 
 ## Deploying to AWS
 
@@ -200,6 +236,15 @@ scripts/             data fetch, image mirroring, packaging, cost estimate, pref
 docs/                report, runbook, ADRs, cost model, post-mortem, branch protection
 ```
 
+## Contributing, security and citation
+
+- [CONTRIBUTING.md](CONTRIBUTING.md): setup, conventions (Conventional Commits, pinned
+  containers, nf-test), PR checks
+- [SECURITY.md](SECURITY.md): private vulnerability reporting and scope
+- [CITATION.cff](CITATION.cff): use GitHub's "Cite this repository" button
+- [CHANGELOG.md](CHANGELOG.md): release-please, semantic versioning
+
 ## License
 
-MIT. Data: GIAB (NIST) and Google Brain Genomics public datasets; see their terms.
+[MIT](LICENSE). Data: GIAB (NIST) and Google Brain Genomics public datasets, used under their
+terms. Public data only; no PHI.

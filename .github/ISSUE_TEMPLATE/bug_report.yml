@@ -1,0 +1,33 @@
+name: Bug report
+description: Something in the pipeline, infrastructure or services does not work as documented
+labels: [bug]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options: [pipeline (Nextflow), infrastructure (Terraform), trigger / API (Lambda), CI/CD, research analysis, docs]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      description: Commands, profile, samplesheet (no private data), environment.
+      render: shell
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: e.g. `.nextflow.log`, `.command.err`, `terraform plan` excerpt.
+      render: text
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit

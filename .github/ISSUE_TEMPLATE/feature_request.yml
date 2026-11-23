@@ -1,0 +1,19 @@
+name: Feature request
+description: Propose a new capability, tool, analysis or guard-rail
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / motivation
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+  - type: textarea
+    id: verification
+    attributes:
+      label: How would we verify it?
+      description: Test, benchmark metric, or AWS check that would prove it works.
