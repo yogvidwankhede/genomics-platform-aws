@@ -3,19 +3,29 @@
 Pure functions, no AWS calls: the Lambda trigger and the operator CLI share this code, so a run
 submitted by hand is byte-for-byte the run an S3 upload would have submitted.
 """
+
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any
 
 RUN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{2,62}$")
 PARAM_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
 # Parameters the platform owns. A user-supplied params.json may not redirect where data is read
 # from/written to, which queue/role is used, or where images come from.
 RESERVED_PARAMS = frozenset(
-    {"input", "outdir", "aws_queue", "aws_region", "aws_logs_group", "task_role_arn",
-     "container_registry", "publish_mode"}
+    {
+        "input",
+        "outdir",
+        "aws_queue",
+        "aws_region",
+        "aws_logs_group",
+        "task_role_arn",
+        "container_registry",
+        "publish_mode",
+    }
 )
 HEAD_JOB_PREFIX = "gp-run-"
 
@@ -35,7 +45,7 @@ class PlatformConfig:
     params: Mapping[str, str] | None = None
 
     @classmethod
-    def from_dict(cls, data: Mapping[str, Any]) -> "PlatformConfig":
+    def from_dict(cls, data: Mapping[str, Any]) -> PlatformConfig:
         try:
             return cls(
                 job_queue=data["job_queue"],
@@ -52,9 +62,7 @@ class PlatformConfig:
 
 def validate_run_id(run_id: str) -> str:
     if not RUN_ID_RE.match(run_id):
-        raise InvalidRunRequest(
-            f"run id {run_id!r} must be 3-63 chars of lowercase letters, digits and '-'"
-        )
+        raise InvalidRunRequest(f"run id {run_id!r} must be 3-63 chars of lowercase letters, digits and '-'")
     return run_id
 
 
