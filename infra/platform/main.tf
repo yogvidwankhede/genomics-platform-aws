@@ -72,6 +72,7 @@ module "trigger" {
   trigger_source_dir       = var.trigger_source_dir
   api_package_path         = var.api_package_path
   notification_email       = var.notification_email
+  reserve_concurrency      = var.reserve_lambda_concurrency
   pipeline_params = merge(
     {
       container_registry = "${local.registry}/mirror/"
@@ -95,5 +96,7 @@ module "observability" {
   monthly_budget_usd   = var.monthly_budget_usd
   budget_emails        = var.notification_email == null ? [] : [var.notification_email]
   enable_cloudtrail    = var.enable_cloudtrail
-  logs_bucket          = module.storage.bucket_names["logs"]
+  # Taken from the bucket *policy* resource so the trail is only created once CloudTrail's
+  # write permission exists (otherwise: InsufficientS3BucketPolicyException on first apply).
+  logs_bucket = module.storage.logs_bucket_with_policy
 }
