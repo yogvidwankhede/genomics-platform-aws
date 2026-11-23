@@ -7,7 +7,7 @@ az_count    = 1
 # 5 vCPUs. Two 2-vCPU flex instances (head job on one, a task on the other) fit both limits.
 max_vcpus            = 4
 batch_instance_types = ["m7i-flex.large", "c7i-flex.large"]
-pipeline_version     = "0.1.2"
+pipeline_version     = "0.1.4"
 pipeline_params = {
   max_cpus   = "2"
   max_memory = "6.GB" # m7i-flex.large has 8 GiB; leave room for the ECS agent

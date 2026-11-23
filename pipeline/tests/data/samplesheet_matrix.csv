@@ -1,0 +1,3 @@
+sample,individual,fastq_1,fastq_2,downsample,seed
+test_full,test,test_R1.fastq.gz,test_R2.fastq.gz,1,100
+test_half,test,test_R1.fastq.gz,test_R2.fastq.gz,0.5,7
