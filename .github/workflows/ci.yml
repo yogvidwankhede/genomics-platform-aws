@@ -156,6 +156,13 @@ jobs:
         run: |
           docker run --rm --network none -v "$PWD/pipeline/tests:/opt/pipeline/tests:ro" \
             gp/nextflow-head:ci -profile test -stub --outdir /work/out
+      - name: every plugin the AWS head job loads is baked in
+        # NXF_CLOUDCACHE_PATH pulls in nf-cloudcache implicitly; a missing plugin only shows up
+        # on AWS (no internet), as it did on the first real run.
+        run: |
+          plugins="$(docker run --rm --entrypoint ls gp/nextflow-head:ci /opt/nextflow-home/plugins)"
+          echo "$plugins"
+          for p in nf-schema nf-amazon nf-cloudcache; do grep -q "^${p}-" <<<"$plugins" || { echo "missing $p"; exit 1; }; done
       - name: Trivy (fail on fixable HIGH/CRITICAL)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

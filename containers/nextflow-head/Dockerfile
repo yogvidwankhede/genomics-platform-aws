@@ -5,6 +5,8 @@ FROM nextflow/nextflow:26.10.7
 
 ARG NF_SCHEMA_VERSION=2.8.0
 ARG NF_AMAZON_VERSION=3.12.1
+# Loaded implicitly when NXF_CLOUDCACHE_PATH is set (S3 resume cache); version requested by 26.10.7.
+ARG NF_CLOUDCACHE_VERSION=0.6.2
 ARG PIPELINE_VERSION=0.0.0-dev
 
 LABEL org.opencontainers.image.title="gp-nextflow-head" \
@@ -19,7 +21,7 @@ ENV NXF_HOME=/opt/nextflow-home \
 # The base image bundles a Docker CLI (used for local docker executors only) and a second copy
 # of the framework under /.nextflow. Neither is used by an awsbatch head job; removing them
 # drops 5 CRITICAL / 68 HIGH Trivy findings and ~150 MB.
-RUN nextflow plugin install nf-schema@${NF_SCHEMA_VERSION},nf-amazon@${NF_AMAZON_VERSION} \
+RUN nextflow plugin install nf-schema@${NF_SCHEMA_VERSION},nf-amazon@${NF_AMAZON_VERSION},nf-cloudcache@${NF_CLOUDCACHE_VERSION} \
  && rm -f /usr/local/bin/docker \
  && rm -rf /.nextflow \
  && mkdir -p /work \
