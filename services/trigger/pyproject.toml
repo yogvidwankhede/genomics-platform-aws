@@ -1,0 +1,14 @@
+[project]
+name = "gp-trigger"
+version = "0.1.0"
+description = "Event-driven run orchestration (Lambda handlers + operator CLI)"
+requires-python = ">=3.12"
+dependencies = []  # boto3 is provided by the Lambda runtime
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "pytest-cov==7.0.0", "boto3==1.40.70", "moto[dynamodb,s3,sns,ssm,batch,cloudwatch]==5.1.16"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
