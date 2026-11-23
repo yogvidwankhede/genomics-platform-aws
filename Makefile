@@ -153,3 +153,7 @@ lint-python: ## ruff lint + format check
 .PHONY: build-api
 build-api: ## Build the API Lambda zip (no-op until services/api exists)
 	PYTHON=$(PYTHON) scripts/build_api.sh
+
+.PHONY: preflight
+preflight: ## Read-only account checks before apply (limits that broke the first deploy)
+	scripts/preflight.sh $(ENV)
