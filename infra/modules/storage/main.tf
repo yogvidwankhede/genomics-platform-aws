@@ -69,6 +69,8 @@ resource "aws_kms_alias" "data" {
 
 # ---- data buckets (KMS) ---------------------------------------------------------------------
 resource "aws_s3_bucket" "data" {
+  #checkov:skip=CKV2_AWS_6:Public access block is aws_s3_bucket_public_access_block.data (same for_each keys); the graph check cannot follow for_each instances.
+  #checkov:skip=CKV2_AWS_61:Each data bucket has its own lifecycle resource (inputs/work/results below); the graph check cannot follow for_each instances.
   #checkov:skip=CKV_AWS_144:Cross-region replication is out of scope (public benchmark data, single region).
   #checkov:skip=CKV2_AWS_62:Event notifications are enabled via EventBridge on the inputs bucket below.
   for_each      = local.data_buckets
@@ -195,26 +197,57 @@ resource "aws_s3_bucket_logging" "artifacts" {
 }
 
 locals {
-  sse_s3_buckets = { logs = aws_s3_bucket.logs, artifacts = aws_s3_bucket.artifacts }
-  all_buckets    = merge(aws_s3_bucket.data, local.sse_s3_buckets)
+  all_buckets = merge(aws_s3_bucket.data, { logs = aws_s3_bucket.logs, artifacts = aws_s3_bucket.artifacts })
 }
 
-resource "aws_s3_bucket_versioning" "sse_s3" {
-  for_each = local.sse_s3_buckets
-  bucket   = each.value.id
+# Controls for the two SSE-S3 buckets are explicit resources (not for_each over a merged map)
+# so static analysis can follow each bucket to its versioning/encryption/public-access block.
+resource "aws_s3_bucket_versioning" "logs" {
+  bucket = aws_s3_bucket.logs.id
   versioning_configuration {
     status = "Enabled"
   }
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "sse_s3" {
-  for_each = local.sse_s3_buckets
-  bucket   = each.value.id
+resource "aws_s3_bucket_versioning" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "logs" {
+  bucket = aws_s3_bucket.logs.id
   rule {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
   }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "artifacts" {
+  bucket = aws_s3_bucket.artifacts.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "logs" {
+  bucket                  = aws_s3_bucket.logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_public_access_block" "artifacts" {
+  bucket                  = aws_s3_bucket.artifacts.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_lifecycle_configuration" "logs" {
@@ -259,8 +292,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "artifacts" {
 }
 
 # ---- controls shared by every bucket --------------------------------------------------------
-resource "aws_s3_bucket_public_access_block" "all" {
-  for_each                = local.all_buckets
+resource "aws_s3_bucket_public_access_block" "data" {
+  for_each                = aws_s3_bucket.data
   bucket                  = each.value.id
   block_public_acls       = true
   block_public_policy     = true
@@ -380,5 +413,9 @@ resource "aws_s3_bucket_policy" "all" {
   bucket   = each.value.id
   policy   = data.aws_iam_policy_document.bucket[each.key].json
 
-  depends_on = [aws_s3_bucket_public_access_block.all]
+  depends_on = [
+    aws_s3_bucket_public_access_block.data,
+    aws_s3_bucket_public_access_block.logs,
+    aws_s3_bucket_public_access_block.artifacts,
+  ]
 }

@@ -46,8 +46,8 @@ tf-lint: ## tflint (AWS ruleset) via the pinned container
 	docker run --rm -v "$$PWD:/data" -w /data/infra -e TFLINT_PLUGIN_DIR=/data/.tflint.d $(TFLINT_IMAGE) --init --config /data/.tflint.hcl
 	docker run --rm -v "$$PWD:/data" -w /data/infra -e TFLINT_PLUGIN_DIR=/data/.tflint.d $(TFLINT_IMAGE) --recursive --config /data/.tflint.hcl
 
-tf-sec: ## checkov static security scan
-	checkov -d infra --framework terraform --quiet --compact
+tf-sec: ## checkov 3.4.6 on Python 3.13 in an isolated env (same as CI)
+	uvx --python 3.13 checkov==3.4.6 -d infra --framework terraform --quiet --compact
 
 tf-test: ## terraform test (mocked AWS provider, offline plans)
 	for d in infra/platform infra/modules/batch infra/modules/storage; do \
@@ -64,8 +64,8 @@ bootstrap-plan: ## Plan the state bucket + GitHub OIDC roles (local state)
 bootstrap-apply: ## Apply the reviewed bootstrap plan
 	$(TF_BOOTSTRAP) apply bootstrap.tfplan
 
-init: ## terraform init against envs/$(ENV).backend.hcl
-	$(TF_PLATFORM) init -input=false -backend-config=../envs/$(ENV).backend.hcl
+init: ## terraform init against envs/$(ENV).backend.hcl (TF_STATE_BUCKET= overrides the bucket)
+	$(TF_PLATFORM) init -input=false -reconfigure -backend-config=../envs/$(ENV).backend.hcl $(if $(TF_STATE_BUCKET),-backend-config=bucket=$(TF_STATE_BUCKET))
 
 cost: ## Print the pre-apply cost estimate (HOURS=, RUNS=)
 	python3 scripts/cost_estimate.py $(ENV) --hours-up $(HOURS) --runs $(RUNS)
@@ -81,7 +81,7 @@ apply: ## Apply the saved plan; requires CONFIRM=yes after reading `make plan`
 
 destroy: ## Tear down $(ENV) completely (one command)
 	@echo "Destroying $(ENV). Buckets/repos are force-deleted only where force_destroy=true (dev)."
-	$(TF_PLATFORM) init -input=false -backend-config=../envs/$(ENV).backend.hcl >/dev/null
+	$(MAKE) --no-print-directory init ENV=$(ENV) >/dev/null
 	$(TF_PLATFORM) destroy $(TFVARS) -auto-approve
 	@echo "Done. Verify nothing billable remains: make verify-teardown ENV=$(ENV)"
 

@@ -30,15 +30,16 @@ run "every_bucket_is_locked_down" {
   command = plan
 
   assert {
-    condition     = length(aws_s3_bucket_public_access_block.all) == 5
-    error_message = "all 5 buckets need a public access block"
+    condition     = length(aws_s3_bucket_public_access_block.data) == 3
+    error_message = "all 3 data buckets need a public access block"
   }
   assert {
-    condition     = alltrue([for b in aws_s3_bucket_public_access_block.all : b.block_public_acls && b.block_public_policy && b.ignore_public_acls && b.restrict_public_buckets])
+    condition = alltrue([for b in concat(values(aws_s3_bucket_public_access_block.data), [aws_s3_bucket_public_access_block.logs, aws_s3_bucket_public_access_block.artifacts]) :
+    b.block_public_acls && b.block_public_policy && b.ignore_public_acls && b.restrict_public_buckets])
     error_message = "public access must be fully blocked"
   }
   assert {
-    condition     = alltrue([for v in aws_s3_bucket_versioning.data : v.versioning_configuration[0].status == "Enabled"]) && alltrue([for v in aws_s3_bucket_versioning.sse_s3 : v.versioning_configuration[0].status == "Enabled"])
+    condition     = alltrue([for v in aws_s3_bucket_versioning.data : v.versioning_configuration[0].status == "Enabled"]) && aws_s3_bucket_versioning.logs.versioning_configuration[0].status == "Enabled" && aws_s3_bucket_versioning.artifacts.versioning_configuration[0].status == "Enabled"
     error_message = "all buckets must be versioned"
   }
   assert {
