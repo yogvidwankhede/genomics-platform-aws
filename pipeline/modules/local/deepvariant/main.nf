@@ -2,7 +2,7 @@ process DEEPVARIANT {
     tag "${meta.id}"
     label 'process_high'
     // DeepVariant publishes x86_64 images only; pinned to an exact release.
-    container 'docker.io/google/deepvariant:1.10.0'
+    container "${params.container_registry ?: ''}docker.io/google/deepvariant:1.10.0"
 
     input:
     tuple val(meta), path(bam), path(bai)

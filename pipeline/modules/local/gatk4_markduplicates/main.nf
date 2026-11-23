@@ -1,7 +1,7 @@
 process GATK4_MARKDUPLICATES {
     tag "${meta.id}"
     label 'process_medium'
-    container 'community.wave.seqera.io/library/gatk4-lite_samtools:9b6806e26dd32afe'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/gatk4-lite_samtools:9b6806e26dd32afe"
 
     input:
     tuple val(meta), path(bam)

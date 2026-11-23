@@ -1,7 +1,7 @@
 process GATK4_HAPLOTYPECALLER {
     tag "${meta.id}"
     label 'process_medium'
-    container 'community.wave.seqera.io/library/gatk4-lite:4.7.0.0--79918b8b2632f4b1'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/gatk4-lite:4.7.0.0--79918b8b2632f4b1"
 
     input:
     tuple val(meta), path(bam), path(bai)

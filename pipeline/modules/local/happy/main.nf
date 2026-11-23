@@ -1,7 +1,7 @@
 process HAPPY {
     tag "${meta.id}"
     label 'process_medium'
-    container 'quay.io/biocontainers/hap.py:0.3.15--py27hcb73b3d_0'
+    container "${params.container_registry ?: ''}quay.io/biocontainers/hap.py:0.3.15--py27hcb73b3d_0"
 
     input:
     tuple val(meta), path(query_vcf), path(query_tbi)

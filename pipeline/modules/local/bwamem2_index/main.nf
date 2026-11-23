@@ -1,7 +1,7 @@
 process BWAMEM2_INDEX {
     tag "${fasta.baseName}"
     label 'process_high_memory'
-    container 'community.wave.seqera.io/library/bwa-mem2_htslib_samtools:db98f81f55b64113'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/bwa-mem2_htslib_samtools:db98f81f55b64113"
 
     input:
     path fasta

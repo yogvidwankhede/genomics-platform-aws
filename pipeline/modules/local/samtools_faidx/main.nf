@@ -1,7 +1,7 @@
 process SAMTOOLS_FAIDX {
     tag "${fasta.baseName}"
     label 'process_single'
-    container 'community.wave.seqera.io/library/htslib_samtools:1.25--704fb80d75745bd4'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/htslib_samtools:1.25--704fb80d75745bd4"
 
     input:
     path fasta

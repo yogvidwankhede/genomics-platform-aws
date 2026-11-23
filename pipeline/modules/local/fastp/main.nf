@@ -1,7 +1,7 @@
 process FASTP {
     tag "${meta.id}"
     label 'process_medium'
-    container 'community.wave.seqera.io/library/fastp:1.4.0--df415eab5e33cb11'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/fastp:1.4.0--df415eab5e33cb11"
 
     input:
     tuple val(meta), path(reads)

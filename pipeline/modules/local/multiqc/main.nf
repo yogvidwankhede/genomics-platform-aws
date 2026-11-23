@@ -1,6 +1,6 @@
 process MULTIQC {
     label 'process_single'
-    container 'community.wave.seqera.io/library/multiqc:1.35--c17fb751507e9dfc'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/multiqc:1.35--c17fb751507e9dfc"
 
     input:
     path multiqc_files, stageAs: '?/*'
