@@ -1,0 +1,6 @@
+# Every path needs a review from its owner before merge (enforced by branch protection).
+*                         @yogvidwankhede
+/infra/                   @yogvidwankhede
+/infra/bootstrap/         @yogvidwankhede
+/.github/workflows/       @yogvidwankhede
+/pipeline/                @yogvidwankhede
