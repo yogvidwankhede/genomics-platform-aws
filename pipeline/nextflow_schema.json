@@ -8,7 +8,10 @@
         "input_output_options": {
             "title": "Input/output options",
             "type": "object",
-            "required": ["input", "outdir"],
+            "required": [
+                "input",
+                "outdir"
+            ],
             "properties": {
                 "input": {
                     "type": "string",
@@ -26,7 +29,12 @@
                 "publish_mode": {
                     "type": "string",
                     "default": "copy",
-                    "enum": ["copy", "symlink", "link", "move"],
+                    "enum": [
+                        "copy",
+                        "symlink",
+                        "link",
+                        "move"
+                    ],
                     "description": "publishDir mode."
                 }
             }
@@ -34,7 +42,9 @@
         "reference_options": {
             "title": "Reference options",
             "type": "object",
-            "required": ["fasta"],
+            "required": [
+                "fasta"
+            ],
             "properties": {
                 "fasta": {
                     "type": "string",
@@ -43,10 +53,30 @@
                     "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
                     "description": "Reference FASTA (uncompressed or bgzipped)."
                 },
-                "fasta_fai": { "type": "string", "format": "file-path", "exists": true, "description": "Optional pre-built .fai." },
-                "fasta_dict": { "type": "string", "format": "file-path", "exists": true, "description": "Optional pre-built GATK .dict." },
-                "bwamem2_index": { "type": "string", "format": "directory-path", "exists": true, "description": "Optional directory with a pre-built bwa-mem2 index." },
-                "intervals": { "type": "string", "format": "file-path", "exists": true, "description": "Optional BED restricting variant calling." }
+                "fasta_fai": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Optional pre-built .fai."
+                },
+                "fasta_dict": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Optional pre-built GATK .dict."
+                },
+                "bwamem2_index": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Optional directory with a pre-built bwa-mem2 index."
+                },
+                "intervals": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Optional BED restricting variant calling."
+                }
             }
         },
         "calling_options": {
@@ -56,39 +86,93 @@
                 "caller": {
                     "type": "string",
                     "default": "gatk",
-                    "enum": ["gatk", "deepvariant"],
+                    "enum": [
+                        "gatk",
+                        "deepvariant"
+                    ],
                     "description": "Germline caller."
                 },
                 "filter_expr": {
                     "type": "string",
                     "description": "bcftools expression; matching records are soft-filtered as LowQual. Default depends on the caller: 'QUAL<30 || FORMAT/DP<5' for GATK, 'FORMAT/DP<5' for DeepVariant (its QUAL scale is lower and it already applies its own PASS/RefCall filter)."
                 },
-                "skip_fastqc": { "type": "boolean", "default": false, "description": "Skip FastQC on raw reads." }
+                "skip_fastqc": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Skip FastQC on raw reads."
+                }
             }
         },
         "benchmark_options": {
             "title": "Benchmark options",
             "type": "object",
             "properties": {
-                "truth_vcf": { "type": "string", "format": "file-path", "exists": true, "description": "Truth VCF (bgzipped + .tbi alongside), e.g. GIAB." },
-                "truth_bed": { "type": "string", "format": "file-path", "exists": true, "description": "Confident-region BED for the truth set." }
+                "truth_vcf": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Truth VCF (bgzipped + .tbi alongside), e.g. GIAB."
+                },
+                "truth_bed": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "description": "Confident-region BED for the truth set."
+                }
             }
         },
         "infrastructure_options": {
             "title": "Infrastructure options",
             "type": "object",
             "properties": {
-                "aws_region": { "type": "string", "default": "us-east-1", "description": "AWS region for the awsbatch profile." },
-                "aws_queue": { "type": "string", "description": "AWS Batch job queue for the awsbatch profile." },
-                "help": { "type": ["boolean", "string"], "description": "Show help." }
+                "aws_region": {
+                    "type": "string",
+                    "default": "us-east-1",
+                    "description": "AWS region for the awsbatch profile."
+                },
+                "aws_queue": {
+                    "type": "string",
+                    "description": "AWS Batch job queue for the awsbatch profile."
+                },
+                "help": {
+                    "type": [
+                        "boolean",
+                        "string"
+                    ],
+                    "description": "Show help."
+                },
+                "aws_logs_group": {
+                    "type": "string",
+                    "description": "CloudWatch log group for Batch task logs (awsbatch profile)."
+                },
+                "task_role_arn": {
+                    "type": "string",
+                    "pattern": "^arn:aws[a-z-]*:iam::\\d{12}:role/.+$",
+                    "description": "IAM role assumed by pipeline task containers on AWS Batch."
+                },
+                "container_registry": {
+                    "type": "string",
+                    "pattern": "^\\S+/$",
+                    "description": "Registry prefix (ending in '/') prepended to every pinned container, e.g. the ECR mirror. Unset = pull from the public registries."
+                }
             }
         }
     },
     "allOf": [
-        { "$ref": "#/$defs/input_output_options" },
-        { "$ref": "#/$defs/reference_options" },
-        { "$ref": "#/$defs/calling_options" },
-        { "$ref": "#/$defs/benchmark_options" },
-        { "$ref": "#/$defs/infrastructure_options" }
+        {
+            "$ref": "#/$defs/input_output_options"
+        },
+        {
+            "$ref": "#/$defs/reference_options"
+        },
+        {
+            "$ref": "#/$defs/calling_options"
+        },
+        {
+            "$ref": "#/$defs/benchmark_options"
+        },
+        {
+            "$ref": "#/$defs/infrastructure_options"
+        }
     ]
 }

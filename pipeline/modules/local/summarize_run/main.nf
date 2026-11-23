@@ -1,7 +1,7 @@
 process SUMMARIZE_RUN {
     tag "${meta.id}"
     label 'process_single'
-    container 'community.wave.seqera.io/library/multiqc:1.35--c17fb751507e9dfc'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/multiqc:1.35--c17fb751507e9dfc"
 
     input:
     tuple val(meta), path(fastp_json), path(markdup_metrics), path(bcftools_stats), path(happy_summary)

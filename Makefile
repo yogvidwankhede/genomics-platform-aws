@@ -90,6 +90,29 @@ verify-teardown: ## List any remaining gp-$(ENV) endpoints, instances, buckets
 	aws ec2 describe-instances --filters Name=tag:Name,Values=gp-$(ENV)-batch Name=instance-state-name,Values=pending,running --query 'Reservations[].Instances[].InstanceId'
 	aws s3api list-buckets --query "Buckets[?starts_with(Name, 'gp-$(ENV)-')].Name"
 
+# ---- M3: run the benchmark on AWS Batch (after `make apply ENV=...`) ------------------------
+.PHONY: stage-awscli mirror-images push-head submit-benchmark test-trigger head-image
+VERSION = $(shell sed -nE "s/^[[:space:]]+version[[:space:]]+= '(.*)'/\1/p" pipeline/nextflow.config | head -1)
+TF_OUT  = terraform -chdir=infra/platform output
+
+head-image: ## Build the Nextflow head image locally (no push)
+	docker build --platform linux/amd64 -f containers/nextflow-head/Dockerfile --build-arg PIPELINE_VERSION=$(VERSION) -t gp/nextflow-head:$(VERSION) .
+
+stage-awscli: ## Upload the AWS CLI bundle Batch instances install at boot
+	scripts/stage_awscli.sh "$$($(TF_OUT) -json buckets | python3 -c 'import json,sys;print(json.load(sys.stdin)["artifacts"])')"
+
+mirror-images: ## Copy every pinned tool image into the ECR mirror
+	scripts/mirror_images.sh "$$($(TF_OUT) -raw ecr_registry)"
+
+push-head: ## Build + push the head image tagged with the pipeline version
+	scripts/push_head_image.sh "$$($(TF_OUT) -raw head_repository_url)" $(VERSION)
+
+submit-benchmark: ## Upload GIAB slice and start a run (MODE=direct|event, CALLER=gatk|deepvariant)
+	scripts/submit_benchmark.sh $(ENV)
+
+test-trigger: ## pytest for the trigger package
+	cd services/trigger && ../../.venv/bin/pytest
+
 .PHONY: build-api
 build-api: ## Build the API Lambda zip (no-op until services/api exists)
 	@if [[ -f services/api/pyproject.toml ]]; then scripts/build_api.sh; else mkdir -p build && python3 -c "import zipfile; zipfile.ZipFile('build/api.zip','w').writestr('gp_api/__init__.py','')"; fi

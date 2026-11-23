@@ -1,0 +1,7 @@
+**
+!pipeline/
+!containers/nextflow-head/
+pipeline/work/
+pipeline/.nextflow*
+pipeline/.nf-test*
+pipeline/null/

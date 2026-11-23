@@ -1,7 +1,7 @@
 process GATK4_CREATESEQUENCEDICTIONARY {
     tag "${fasta.baseName}"
     label 'process_single'
-    container 'community.wave.seqera.io/library/gatk4-lite:4.7.0.0--79918b8b2632f4b1'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/gatk4-lite:4.7.0.0--79918b8b2632f4b1"
 
     input:
     path fasta

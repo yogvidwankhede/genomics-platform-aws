@@ -1,7 +1,7 @@
 process FASTQC {
     tag "${meta.id}"
     label 'process_low'
-    container 'community.wave.seqera.io/library/fastqc:0.13.0--b342db7b694c9af4'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/fastqc:0.13.0--b342db7b694c9af4"
 
     input:
     tuple val(meta), path(reads)

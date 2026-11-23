@@ -1,7 +1,7 @@
 process BWAMEM2_MEM {
     tag "${meta.id}"
     label 'process_high'
-    container 'community.wave.seqera.io/library/bwa-mem2_htslib_samtools:db98f81f55b64113'
+    container "${params.container_registry ?: ''}community.wave.seqera.io/library/bwa-mem2_htslib_samtools:db98f81f55b64113"
 
     input:
     tuple val(meta), path(reads)
