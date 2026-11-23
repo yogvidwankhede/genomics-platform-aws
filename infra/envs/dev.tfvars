@@ -1,0 +1,9 @@
+environment        = "dev"
+region             = "us-east-1"
+owner              = "yogvid"
+cost_center        = "portfolio"
+az_count           = 1
+max_vcpus          = 16
+monthly_budget_usd = 10
+force_destroy      = true
+enable_cloudtrail  = true
