@@ -13,7 +13,7 @@ workflow CALL_VARIANTS {
     dict       // value: path
     intervals  // value: path or []
     caller     // val: 'gatk' | 'deepvariant'
-    filter_expr
+    filter_expr  // val: bcftools exclude expression or null for the caller default
 
     main:
     if (caller == 'deepvariant') {
@@ -22,8 +22,11 @@ workflow CALL_VARIANTS {
     else {
         ch_raw = GATK4_HAPLOTYPECALLER(bam, fasta, fai, dict, intervals).vcf
     }
+    // QUAL scales differ between callers: a GATK-tuned QUAL<30 drops real DeepVariant calls
+    // (602 of 3,536 PASS calls in the HG001 chr20 benchmark), so the default is per caller.
+    def default_expr = caller == 'deepvariant' ? 'FORMAT/DP<5' : 'QUAL<30 || FORMAT/DP<5'
     BCFTOOLS_NORM(ch_raw, fasta)
-    BCFTOOLS_FILTER(BCFTOOLS_NORM.out.vcf, filter_expr)
+    BCFTOOLS_FILTER(BCFTOOLS_NORM.out.vcf, filter_expr ?: default_expr)
     BCFTOOLS_STATS(BCFTOOLS_FILTER.out.vcf)
 
     emit:

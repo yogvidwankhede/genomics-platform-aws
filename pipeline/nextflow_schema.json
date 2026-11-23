@@ -61,8 +61,7 @@
                 },
                 "filter_expr": {
                     "type": "string",
-                    "default": "QUAL<30 || FORMAT/DP<5",
-                    "description": "bcftools expression; matching records are soft-filtered as LowQual."
+                    "description": "bcftools expression; matching records are soft-filtered as LowQual. Default depends on the caller: 'QUAL<30 || FORMAT/DP<5' for GATK, 'FORMAT/DP<5' for DeepVariant (its QUAL scale is lower and it already applies its own PASS/RefCall filter)."
                 },
                 "skip_fastqc": { "type": "boolean", "default": false, "description": "Skip FastQC on raw reads." }
             }
