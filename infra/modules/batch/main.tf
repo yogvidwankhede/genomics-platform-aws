@@ -107,6 +107,9 @@ resource "aws_batch_compute_environment" "spot" {
 
   lifecycle {
     create_before_destroy = true
+    # Batch owns desired_vcpus while it scales; resetting it from Terraform would fight the
+    # scheduler (and showed up as permanent drift after the first AWS run).
+    ignore_changes = [compute_resources[0].desired_vcpus]
   }
 }
 
