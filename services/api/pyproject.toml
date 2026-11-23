@@ -1,0 +1,18 @@
+[project]
+name = "gp-api"
+version = "0.1.0"
+description = "Read-only REST API over pipeline runs, QC metrics and variant summaries"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.165.0",
+  "mangum==0.22.0",
+  "pydantic==2.14.4",
+]
+
+[project.optional-dependencies]
+dev = ["pytest==8.4.2", "pytest-cov==7.1.0", "httpx==0.28.1", "boto3==1.44.9", "moto[dynamodb,s3]==5.2.5"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"
