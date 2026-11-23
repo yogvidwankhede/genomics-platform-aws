@@ -1,0 +1,4 @@
+callset,sites,violations,violation_rate,shared_with_truth,caller_only
+GIAB v4.2.1 truth (normalised),4210,13,0.0030878859857482186,13,0
+GATK HaplotypeCaller,4208,16,0.0038022813688212928,13,3
+DeepVariant,4195,14,0.0033373063170441,13,1

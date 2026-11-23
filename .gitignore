@@ -43,3 +43,6 @@ infra/**/.build/
 .tflint.d/
 .venv/
 build/
+
+# analysis outputs behind docs/report.md are small and are the provenance of every number
+!research/results/
