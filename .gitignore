@@ -1,5 +1,5 @@
 # data + run outputs (never committed; see scripts/fetch_benchmark_data.sh)
-data/
+/data/
 results/
 work/
 .nextflow/

@@ -1,0 +1,56 @@
+nextflow_process {
+
+    name "SUMMARIZE_RUN"
+    script "../main.nf"
+    process "SUMMARIZE_RUN"
+    tag "modules"
+    tag "summary"
+
+    test("builds the API contract JSON from tool outputs") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'fixture'],
+                    file("${projectDir}/tests/fixtures/fastp.json", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/markdup.metrics.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/bcftools_stats.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/happy.summary.csv", checkIfExists: true)
+                ]
+                """
+            }
+        }
+        then {
+            def summary = new groovy.json.JsonSlurper().parse(file(process.out.json[0][1]))
+            assertAll(
+                { assert process.success },
+                { assert summary.schema_version == 1 },
+                { assert summary.sample == 'fixture' },
+                { assert summary.benchmark.SNP.f1 == 0.994382 },
+                { assert summary.variants.snps == 189 },
+                { assert snapshot(summary.benchmark, summary.variants).match() }
+            )
+        }
+    }
+
+    test("benchmark is null when no truth set was supplied") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'fixture'],
+                    file("${projectDir}/tests/fixtures/fastp.json", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/markdup.metrics.txt", checkIfExists: true),
+                    file("${projectDir}/tests/fixtures/bcftools_stats.txt", checkIfExists: true),
+                    []
+                ]
+                """
+            }
+        }
+        then {
+            def summary = new groovy.json.JsonSlurper().parse(file(process.out.json[0][1]))
+            assert process.success
+            assert summary.benchmark == null
+        }
+    }
+}

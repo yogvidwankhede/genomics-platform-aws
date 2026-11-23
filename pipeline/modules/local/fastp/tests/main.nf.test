@@ -1,0 +1,49 @@
+nextflow_process {
+
+    name "FASTP"
+    script "../main.nf"
+    process "FASTP"
+    tag "modules"
+    tag "fastp"
+
+    test("trims paired-end reads and reports JSON QC") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'test'],
+                    [
+                        file("${projectDir}/tests/data/test_R1.fastq.gz", checkIfExists: true),
+                        file("${projectDir}/tests/data/test_R2.fastq.gz", checkIfExists: true)
+                    ]
+                ]
+                """
+            }
+        }
+        then {
+            def report = new groovy.json.JsonSlurper().parse(file(process.out.json[0][1]))
+            assertAll(
+                { assert process.success },
+                { assert process.out.reads[0][1].size() == 2 },
+                { assert report.summary.before_filtering.total_reads == 25352 },
+                { assert report.summary.after_filtering.total_reads <= 25352 },
+                { assert snapshot(report.summary.before_filtering.total_reads).match() }
+            )
+        }
+    }
+
+    test("stub") {
+        options "-stub"
+        when {
+            process {
+                """
+                input[0] = [[id: 'test'], [file("${projectDir}/tests/data/test_R1.fastq.gz"), file("${projectDir}/tests/data/test_R2.fastq.gz")]]
+                """
+            }
+        }
+        then {
+            assert process.success
+            assert process.out.json.size() == 1
+        }
+    }
+}

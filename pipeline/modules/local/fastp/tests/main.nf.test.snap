@@ -1,0 +1,12 @@
+{
+    "trims paired-end reads and reports JSON QC": {
+        "content": [
+            25352
+        ],
+        "timestamp": "2026-11-22T18:46:04.459885",
+        "meta": {
+            "nf-test": "0.9.5",
+            "nextflow": "26.10.7"
+        }
+    }
+}

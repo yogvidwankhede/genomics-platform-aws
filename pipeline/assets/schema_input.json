@@ -1,0 +1,31 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/yogvidwankhede/genomics-platform-aws/main/pipeline/assets/schema_input.json",
+    "title": "Samplesheet schema",
+    "description": "One row per sample: paired-end FASTQs. Paths may be absolute, s3://, or relative to the samplesheet.",
+    "type": "array",
+    "minItems": 1,
+    "uniqueEntries": ["sample"],
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+                "errorMessage": "Sample ID must be 1-64 chars of letters, digits, '.', '_' or '-' (no spaces)",
+                "meta": ["id"]
+            },
+            "fastq_1": {
+                "type": "string",
+                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
+                "errorMessage": "fastq_1 must be a gzipped FASTQ (.fq.gz / .fastq.gz) with no spaces"
+            },
+            "fastq_2": {
+                "type": "string",
+                "pattern": "^\\S+\\.f(ast)?q\\.gz$",
+                "errorMessage": "fastq_2 must be a gzipped FASTQ (.fq.gz / .fastq.gz) with no spaces"
+            }
+        },
+        "required": ["sample", "fastq_1", "fastq_2"]
+    }
+}

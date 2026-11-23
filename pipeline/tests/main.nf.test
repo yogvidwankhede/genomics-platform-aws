@@ -1,0 +1,83 @@
+nextflow_pipeline {
+
+    name "Germline pipeline end-to-end on the GIAB HG001 100 kb test slice"
+    script "../main.nf"
+    tag "pipeline"
+
+    test("-profile test: completes and meets the GIAB accuracy floor") {
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+        then {
+            def summary = new groovy.json.JsonSlurper().parse(file("$outputDir/summary/test.run_summary.json"))
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.failed().size() == 0 },
+                { assert workflow.trace.succeeded().size() == 14 },
+                { assert file("$outputDir/multiqc/multiqc_report.html").exists() },
+                { assert file("$outputDir/variants/test/test.filtered.vcf.gz").exists() },
+                { assert file("$outputDir/benchmark/test/test.happy.summary.csv").exists() },
+                // accuracy floors, not exact values: a regression gate that tolerates tool bumps
+                { assert summary.benchmark.SNP.f1   >= 0.95 },
+                { assert summary.benchmark.INDEL.f1 >= 0.90 },
+                { assert summary.variants.snps > 150 },
+                { assert summary.qc.reads_before_filtering == 25352 },
+                { assert snapshot(
+                    summary.qc.reads_before_filtering,
+                    summary.benchmark.SNP.truth_total,
+                    summary.benchmark.INDEL.truth_total
+                  ).match("inputs_and_truth") }
+            )
+        }
+    }
+
+    test("-profile test -stub: graph wires up without running tools") {
+        options "-stub"
+        when {
+            params {
+                outdir = "$outputDir"
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.success },
+                { assert workflow.trace.succeeded().size() == 14 },
+                { assert file("$outputDir/pipeline_info").exists() }
+            )
+        }
+    }
+
+    test("samplesheet with an invalid sample ID is rejected by nf-schema") {
+        options "-stub"
+        when {
+            params {
+                input  = "${projectDir}/tests/data/invalid/samplesheet_bad_id.csv"
+                outdir = "$outputDir"
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert path("$metaDir/nextflow.log").text.contains('Sample ID must be 1-64 chars') }
+            )
+        }
+    }
+
+    test("samplesheet with a non-gzipped FASTQ is rejected by nf-schema") {
+        options "-stub"
+        when {
+            params {
+                input  = "${projectDir}/tests/data/invalid/samplesheet_bad_ext.csv"
+                outdir = "$outputDir"
+            }
+        }
+        then {
+            assertAll(
+                { assert workflow.failed },
+                { assert path("$metaDir/nextflow.log").text.contains('fastq_1 must be a gzipped FASTQ') }
+            )
+        }
+    }
+}
