@@ -31,7 +31,9 @@ locals {
     mkdir -p /opt/aws-cli/lib
     cp -L /usr/lib64/libz.so.1 /opt/aws-cli/lib/
     mv /opt/aws-cli/bin/aws /opt/aws-cli/bin/aws.real
-    printf '%s\n' '#!/bin/sh' 'LD_LIBRARY_PATH=/opt/aws-cli/lib$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH} exec /opt/aws-cli/bin/aws.real "$$@"' > /opt/aws-cli/bin/aws
+    # Terraform escapes only dollar-brace (written doubled below); a bare dollar such as the
+    # argument list must stay single, or the shell sees the PID (tests/batch.tftest.hcl).
+    printf '%s\n' '#!/bin/sh' 'LD_LIBRARY_PATH=/opt/aws-cli/lib$${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH} exec /opt/aws-cli/bin/aws.real "$@"' > /opt/aws-cli/bin/aws
     chmod 0755 /opt/aws-cli/bin/aws
     /opt/aws-cli/bin/aws --version
     rm -rf /tmp/aws /tmp/awscli.zip
