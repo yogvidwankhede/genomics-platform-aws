@@ -25,6 +25,9 @@ release-please from Conventional Commits on `main`.
   fmt/validate/tflint/test, checkov, Trivy, OIDC `terraform plan` comments on PRs, and
   gated apply (dev automatic, prod behind Environment approval). pre-commit, CODEOWNERS,
   Dependabot, and release-please.
+- **Operations and docs (M6):** CloudWatch dashboard and alarms (run failed, queue stuck,
+  Lambda errors, DLQ, budget), JSON logs and EMF metrics, runbook (triage, resume, access,
+  rollback, teardown), five ADRs, cost model, README and RESULTS.md (measured values only).
 
 ### Fixed
 - DeepVariant calls were soft-filtered with a GATK-tuned `QUAL<30`; the filter default is now
