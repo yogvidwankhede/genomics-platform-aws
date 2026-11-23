@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "BCFTOOLS_NORM"
+    script "../main.nf"
+    process "BCFTOOLS_NORM"
+    tag "modules"
+    tag "bcftools"
+
+    test("normalises a VCF against the reference and indexes it") {
+        when {
+            process {
+                """
+                input[0] = [
+                    [id: 'truth'],
+                    file("${projectDir}/tests/data/truth.vcf.gz", checkIfExists: true),
+                    file("${projectDir}/tests/data/truth.vcf.gz.tbi", checkIfExists: true)
+                ]
+                input[1] = file("${projectDir}/tests/data/ref.fa", checkIfExists: true)
+                """
+            }
+        }
+        then {
+            def vcf = path(process.out.vcf[0][1])
+            assertAll(
+                { assert process.success },
+                { assert vcf.exists() },
+                { assert file(process.out.vcf[0][2]).exists() },
+                // 225 truth records, 2 of them multi-allelic: splitting (-m -any) yields 227
+                { assert vcf.linesGzip.findAll { !it.startsWith('#') }.size() == 227 },
+                { assert !vcf.linesGzip.findAll { !it.startsWith('#') }.any { it.split('\t')[4].contains(',') } },
+                { assert vcf.linesGzip.any { it.startsWith('##bcftools_normCommand') } }
+            )
+        }
+    }
+}
