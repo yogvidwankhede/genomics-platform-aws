@@ -44,4 +44,21 @@ cmp "R1 repeat (8 CPU, -K)"            r1_a       r1_b
 cmp "R2 threads 8 vs 2 (-K fixed)"     r1_a       r2_cpu2
 cmp "R3 threads 8 vs 2 (no -K)"        r3_noK_cpu8 r3_noK_cpu2
 cmp "-K vs no -K (8 CPU)"              r1_a       r3_noK_cpu8
+
+# R4: the AWS Batch run of the same FASTQs (downloaded into data/runs/ before teardown)
+AWS_VCF="$ROOT/data/runs/aws-hg001-chr20-gatk-3/variants/HG001.gatk/HG001.gatk.filtered.vcf.gz"
+if [[ -s "$AWS_VCF" ]]; then
+  PYTHONPATH=src "$PY" -m gp_research.analyze compare-vcf "$AWS_VCF" "$(vcf r2_cpu2)" \
+    --label "R4 AWS Batch (2 vCPU) vs laptop (2 CPU)" --out "$RES" >/dev/null
+  PYTHONPATH=src "$PY" -m gp_research.analyze compare-vcf "$AWS_VCF" "$(vcf r1_a)" \
+    --label "R4 AWS Batch (2 vCPU) vs laptop (8 CPU)" --out "$RES" >/dev/null
+fi
+
+# Alignment level: checksum of the sorted alignment records (fields 1-11, i.e. without
+# read-group/program tags) of each run's duplicate-marked BAM.
+echo "alignment record checksums:" | tee "$ROOT/research/results/alignment_checksums.txt"
+for run in r1_a r1_b r2_cpu2 r3_noK_cpu8 r3_noK_cpu2; do
+  docker run --rm --platform linux/amd64 -v "$OUT:/r" -w /r quay.io/biocontainers/samtools:1.25--h9dcdb79_0 \
+    bash -c "printf '%-12s %s records, md5 %s\n' $run \$(samtools view -c $run/alignment/HG001.md.bam) \$(samtools view $run/alignment/HG001.md.bam | cut -f1-11 | sort | md5sum | cut -c1-16)"
+done | tee -a "$ROOT/research/results/alignment_checksums.txt"
 cat "$RES"

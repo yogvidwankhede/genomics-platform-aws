@@ -165,5 +165,3 @@
 | GIAB v4.2.1 truth (normalised) | 4210 | 13 | 0.0031 | 13 | 0 |
 | GATK HaplotypeCaller | 4208 | 16 | 0.0038 | 13 | 3 |
 | DeepVariant | 4195 | 14 | 0.0033 | 13 | 1 |
-
-
