@@ -1,5 +1,5 @@
 # Pinned dev/test dependencies (Python 3.13, matching the Lambda runtime).
-pytest==8.4.2
+pytest==9.2.0
 pytest-cov==7.1.0
 boto3==1.44.9
 moto[dynamodb,s3,sns,ssm,batch,cloudwatch]==5.2.5
