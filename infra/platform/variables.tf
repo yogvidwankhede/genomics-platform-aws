@@ -54,6 +54,12 @@ variable "max_vcpus" {
   default     = 16
 }
 
+variable "batch_instance_types" {
+  description = "EC2 instance types/families for the Spot compute environment."
+  type        = list(string)
+  default     = ["m6i", "m5", "c6i", "c5", "r6i", "r5"]
+}
+
 variable "monthly_budget_usd" {
   description = "AWS Budgets limit."
   type        = number

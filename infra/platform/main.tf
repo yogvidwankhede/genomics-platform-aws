@@ -52,6 +52,7 @@ module "batch" {
   security_group_ids   = [module.network.compute_security_group_id]
   instance_profile_arn = module.iam.instance_profile_arn
   max_vcpus            = var.max_vcpus
+  instance_types       = var.batch_instance_types
   kms_key_arn          = module.storage.kms_key_arn
   artifacts_bucket     = module.storage.bucket_names["artifacts"]
   head_image           = "${local.registry}/${local.head_repository}:${var.pipeline_version}"
