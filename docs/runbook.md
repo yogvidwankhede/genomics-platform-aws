@@ -21,6 +21,17 @@ AWS credentials from SSO / `aws configure sso` (never long-lived keys).
 **0. Prerequisites:** Terraform ≥ 1.10, Docker, AWS CLI v2, and an AWS profile with admin on a
 sandbox account (bootstrap only; everything after goes through the scoped roles).
 
+**0b. Preflight (read-only)**
+
+```bash
+make preflight ENV=dev
+```
+
+This checks the caller identity, the Lambda concurrency limit (new accounts: 10, which means
+`reserve_lambda_concurrency = false`), the Spot vCPU quota against `max_vcpus`, Free-plan instance
+eligibility, and the state bucket. These are the limits that broke the first deployment
+([post-mortem](postmortem-first-aws-deployment.md)).
+
 **1. Bootstrap (once per account)**
 
 ```bash
@@ -132,6 +143,10 @@ The `gp-<env>-run-failed` alarm fires; SNS carries `run_id`, `reason`, `nextflow
    | `aws: not found` / exit 127 at staging | the instance did not install the CLI | check the artifacts bucket has `bootstrap/awscli-exe-linux-x86_64.zip` (`make stage-awscli`) and the instance user-data log `/var/log/cloud-init-output.log` |
    | nf-schema error at start | bad samplesheet or params | the run never started; fix the input and upload under a **new** run_id |
    | hap.py fails | truth VCF without `.tbi`, or contig names differ | upload `truth.vcf.gz.tbi`; use the same reference build as the truth set |
+   | `aws: error while loading shared libraries: libz.so.1` (exit 127) | a tool image without libz, and the instance not booted with the libz-bundling user-data | check the launch template version in use; run `scripts/test_awscli_in_images.sh` for new images |
+   | `Found invalid choice '<number>@'` from aws | the CLI wrapper's `$@` rendered as `$$@` (Terraform escaping) | `terraform test` in `infra/modules/batch` guards this; check the rendered user-data |
+   | `Plugin with id nf-… not found` in the head job | the head image is offline and a plugin isn't baked in | add it to the Dockerfile; CI checks the plugin list |
+   | jobs RUNNABLE, `not eligible for Free Tier` | Free-plan account: only Free Tier eligible instance types launch | set `batch_instance_types` (dev: m7i-flex.large, c7i-flex.large) and per-task `max_cpus`/`max_memory` |
 
 4. Record the run in DynamoDB (it already shows `FAILED` and `status_reason`) and in the PR
    or issue that fixes it.
