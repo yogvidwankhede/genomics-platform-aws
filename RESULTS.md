@@ -59,6 +59,26 @@ caller-specific produced the numbers above. GATK results were unchanged (identic
 \*Σ(task realtime × requested CPUs) from the trace. This is an upper bound on compute used, not a
 cost. A cold end-to-end DeepVariant run was not timed on its own.
 
+## Research benchmark M7 (local, Docker, 2026-11-23)
+
+One Nextflow run (`stoic_wegener`): **28 alignments × 2 callers = 56 call sets, 448 tasks, 0
+failed, 1 h 18 m** on the 8-CPU Colima VM; 8.45 allocated CPU-hours. The design, statistics and
+interpretation are in [docs/report.md](docs/report.md). Machine-readable outputs are in
+[`research/results/`](research/results) (`runs.csv`, `bootstrap_ci.csv`, `titration.csv`,
+`paired_mcnemar.csv`, `strata.csv`, `mendelian.csv`, `cost.csv`, `reproducibility.jsonl`,
+`alignment_checksums.txt`).
+
+| Result | Value |
+|---|---|
+| 30x F1 range, 4 samples × 2 callers (block-bootstrap 95% CIs in `bootstrap_ci.csv`) | SNP 0.9961–0.9996; INDEL 0.9802–0.9966 |
+| Paired GATK vs DeepVariant at 30x (exact McNemar) | not significant for any sample/type (p 0.125–1.0) |
+| Same at 5x and 10x (3 seeds × 2 samples × SNP/INDEL) | significant in every replicate (p ≤ 0.005) |
+| Share of SNP errors in GIAB difficult regions (HG001+HG002, 30x) | GATK 16/17, DeepVariant 6/6 |
+| Trio Mendelian violations: truth / GATK / DeepVariant | 13 / 16 / 14 sites (caller-attributable: 0 / 3 / 1) |
+| Mean allocated CPU-hours per sample: GATK / DeepVariant | 0.100 / 0.202 |
+| Reproducibility: repeat, 2 vs 8 threads (`-K` fixed), laptop vs AWS | identical calls; laptop vs AWS byte-identical VCF records |
+| Reproducibility without `-K`: 2 vs 8 threads | calls identical, **42 alignment records (22 pairs) differ** |
+
 ## Test and quality gates (local)
 
 | Gate | Result |

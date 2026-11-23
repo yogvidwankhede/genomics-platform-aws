@@ -210,7 +210,27 @@ the same indel is written differently in different samples (e.g. `AAAAT>A` vs
 
 ### 3.6 Reproducibility
 
-<!-- REPRO -->
+HG001 benchmark FASTQs, GATK path. The comparison covers all PASS biallelic genotypes
+(`research/results/reproducibility.jsonl`); alignment checksums are over the sorted BAM records
+(`alignment_checksums.txt`).
+
+| Comparison | Variant calls | Alignments |
+|---|---|---|
+| R1: identical run repeated (8 CPU, `-K` fixed) | **identical** (3,528/3,528) | identical |
+| R2: 8 vs 2 CPUs per task, `-K` fixed | **identical** | identical |
+| R3: 8 vs 2 CPUs per task, BWA-MEM2 default batching (no `-K`) | identical | **differ: 42 records / 22 read pairs (0.009%)** |
+| `-K` fixed vs default, 8 CPU | identical | identical |
+| R4: AWS Batch Spot (2 vCPU) vs laptop (2 CPU and 8 CPU) | **byte-identical** VCF records (same MD5 of every record body) | n/a (AWS BAM not retained) |
+
+- **What `-K` controls.** BWA-MEM2's default batch size scales with the thread count, and it
+  estimates the insert-size distribution per batch. Without a fixed batch, 22 read pairs
+  changed their proper-pair flags between 2 and 8 threads.
+- **Why the calls didn't change.** None of those differences reached the variant calls in this
+  window, but a larger genome makes that only a matter of probability. The pipeline therefore
+  pins `-K 100000000`; with it, alignments are byte-identical across thread counts.
+- **Cloud vs laptop.** Together with pinned container tags, this is why the cloud run
+  reproduces the laptop run exactly, despite different CPUs, instance types and a different
+  executor.
 
 ## 4. Discussion
 
@@ -230,10 +250,10 @@ production QC metric, but here more than 80% of the violations were shared with 
 sets themselves. Without decomposing against an independent baseline, a lab would misattribute
 sample-level variation to the caller.
 
-**Engineering reproducibility is a research result too.** The cross-environment match (laptop
-vs AWS), and the reproducibility experiments in §3.6 that show which settings control
-determinism, are what make a pipeline's accuracy claims portable from development to
-production.
+**Engineering reproducibility is a research result too.** Pinned containers plus a fixed
+aligner batch size made results byte-identical across reruns, thread counts and laptop vs
+AWS. Without the fixed batch, alignments already drift with the thread count (§3.6). Those
+are the conditions under which a validation done in development still holds in production.
 
 ## 5. Limitations
 

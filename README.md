@@ -47,6 +47,7 @@ with OIDC**, and documented like a platform team would (runbook, ADRs, post-mort
 | **94–100% of SNP errors** sit in GIAB difficult regions (10% of the sequence) | low-mappability SNP F1 0.85 (GATK) vs 0.94 (DeepVariant) |
 | Trio Mendelian errors attributable to the caller: **GATK 3, DeepVariant 1** | 13 further violations are shared with the independent truth sets (sample-level, not caller error) |
 | DeepVariant costs about **2.1x** GATK's CPU per sample, and its cost barely falls with depth | Nextflow traces, 8.45 CPU-h for the full matrix |
+| Results are **byte-identical** across reruns, 2 vs 8 threads and **laptop vs AWS** | holds only with BWA-MEM2 `-K` fixed: without it 22 read pairs align differently by thread count ([ADR-0006](docs/adr/0006-deterministic-alignment-and-pinned-environment.md)) |
 
 **Platform, measured on a real AWS account** (Batch Spot, Free plan, then torn down):
 
