@@ -1,8 +1,7 @@
 # Results
 
-Only numbers from runs that actually happened are recorded here. Each row says where it ran.
-**Nothing in this file has run on AWS yet.** The AWS section stays empty until a real run
-(M3) is executed and its Cost Explorer figures are in.
+Only numbers from runs that actually happened are recorded here. Each row says where it ran
+(local laptop, GitHub Actions, or AWS). Where something was not measured, it says so.
 
 ## Environment for the local runs
 
@@ -79,11 +78,53 @@ cost. A cold end-to-end DeepVariant run was not timed on its own.
 
 GitHub Actions results are on the PRs (#5 onward runs `ci.yml`).
 
-## AWS
+## AWS (measured, 2026-11-23 UTC)
 
-| Item | Status |
+**Account and environment.** New account on the **AWS Free plan** ($100 credit), `us-east-1`,
+`dev` environment (142 Terraform resources). Batch Spot instances were `c7i-flex.large` (head job)
+and `m7i-flex.large` (tasks): Free-plan accounts may only launch Free Tier eligible types, so
+every task was capped at 2 vCPU / 6 GB. The pipeline was v0.1.4 (head image
+`gp/nextflow-head:0.1.4`), with tool images pulled from the ECR mirror through VPC endpoints
+(no NAT gateway).
+
+### Benchmark run `hg001-chr20-aws-gatk-3` (GIAB HG001, chr20:10-12 Mb, GATK)
+
+| Metric | Value |
 |---|---|
-| `terraform plan` / `apply` against a real account | **Not run** |
-| Benchmark on AWS Batch (Spot) | **Not run** |
-| Event-triggered run (S3 → EventBridge → Lambda → Batch) | **Not run** (handlers tested with moto only) |
-| Measured cost per run | **Not measured**. `scripts/cost_estimate.py` gives a pre-apply estimate (≈ $0.49 for 3 h up + 1 run in dev), which is an assumption, not a result |
+| Tasks | 14/14 completed (`intergalactic_pike`) |
+| Nextflow wall time | **11 m 44 s** |
+| Head Batch job (DynamoDB `duration_seconds`) | **723.7 s** (03:41:00 → 03:53:03 UTC) |
+| Allocated CPU-hours (Σ realtime × vCPU) | 0.096 |
+| Σ task realtime vs Σ task duration | 194 s vs 1,612 s: **88% of task wall time was scheduling, instance start-up, image pull and S3 staging** |
+| SNP (truth 2,652): TP / FN / FP / recall / precision / **F1** | 2,648 / 4 / 6 / 0.998492 / 0.997740 / **0.998116** |
+| INDEL (truth 405): TP / FN / FP / recall / precision / **F1** | 396 / 9 / 7 / 0.977778 / 0.982630 / **0.980198** |
+
+The AWS hap.py summary is **identical** to the local GATK run on the same FASTQs (section above),
+despite different CPU counts (2 vs 4–8 per task) and environments.
+
+### Platform behaviour observed on AWS
+
+| Check | Result |
+|---|---|
+| S3 upload of `samplesheet.csv` → EventBridge → `submit_run` Lambda → DynamoDB + Batch | worked on the first upload (runs 1 and 2) |
+| Batch state change → `run_status` Lambda → DynamoDB | recorded FAILED (with reason) and SUCCEEDED, duration, and per-sample F1 |
+| Rerun of a failed run with the operator CLI (`attempt` 1→4) | worked after the job-id-scoped status fix |
+| **Resume from the S3 task cache** (attempt 4, unchanged inputs) | **14/14 tasks CACHED, 0 submitted; 14.5 s** vs 11 m 44 s cold |
+| API (Lambda function URL, `AWS_IAM`) | SigV4-signed `GET /health`, `/runs`, `/runs/{id}`, `/qc`, `/variants`: 200; **unsigned request: 403** |
+| Scale to zero between runs | compute environment returned to 0 desired vCPUs |
+| Teardown (`make destroy ENV=dev`) | **142 destroyed**; `make verify-teardown`: no VPC endpoints, instances or `gp-dev-*` buckets left |
+
+Nine defects found only on the real account (Free-plan instance limits, Lambda concurrency,
+an offline image missing a plugin, a container missing libz, Terraform escaping, resume history,
+S3 path handling, and others) are written up in
+[`docs/postmortem-first-aws-deployment.md`](docs/postmortem-first-aws-deployment.md).
+Raw evidence (DynamoDB scan, Batch job lists, API responses, trace) was saved locally under
+`data/runs/aws-hg001-chr20-gatk-3/` (git-ignored).
+
+### Cost
+
+**Not yet measured.** Cost Explorer data lags by about 24 h. The account showed $0.00 of the
+$100 credit used when the run started; the dev stack existed from 02:32 to about 04:03 UTC (about 1.5 h; apply start to destroy complete). Until
+the actual figure is read from Cost Explorer (filtered by `Project=genomics-platform`), the
+only number is the **pre-apply estimate** from `scripts/cost_estimate.py`: about $0.09/h idle
+plus about $0.13–0.23 per run. No card charges are possible on the Free plan.
