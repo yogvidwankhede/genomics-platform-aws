@@ -1,0 +1,248 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NXF_VER: "26.10.7"
+  NFT_VER: "0.9.5"
+  TF_VER: "1.17.2"
+  TFLINT_VER: "v0.60.0"
+  PY_VER: "3.13"
+
+jobs:
+  python:
+    name: python (ruff + pytest)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PY_VER }}
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: pip install -r requirements-dev.txt
+      - name: ruff
+        run: |
+          ruff check services pipeline/bin scripts
+          ruff format --check services pipeline/bin scripts
+      - name: pytest (trigger Lambdas)
+        working-directory: services/trigger
+        run: pytest --cov=gp_trigger --cov-report=term --cov-fail-under=80
+      - name: pytest (API)
+        working-directory: services/api
+        run: pytest --cov=gp_api --cov-report=term --cov-fail-under=90
+
+  nextflow:
+    name: nextflow (lint + stub + nf-test)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6.3.0
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: nf-core/setup-nextflow@c66f1bfa2dc817ae23f4b34eaa26fa5f1453ca71 # v3.1.0
+        with:
+          version: ${{ env.NXF_VER }}
+      - name: Install nf-test
+        run: |
+          curl -fsSL "https://github.com/askimed/nf-test/releases/download/v${NFT_VER}/nf-test-${NFT_VER}.tar.gz" | tar -xz -C /tmp
+          mkdir -p ~/.nf-test && cp /tmp/nf-test.jar ~/.nf-test/ && sudo install -m 0755 /tmp/nf-test /usr/local/bin/nf-test
+          nf-test version
+      - name: nextflow lint
+        working-directory: pipeline
+        run: nextflow lint .
+      - name: stub run (whole DAG, no tools executed)
+        working-directory: pipeline
+        run: nextflow run . -profile test,docker -stub --outdir results-stub
+      - name: nf-test
+        working-directory: pipeline
+        run: nf-test test --ci --junitxml=nf-test-report.xml
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nf-test-report
+          path: |
+            pipeline/nf-test-report.xml
+            pipeline/.nf-test/tests/*/meta/nextflow.log
+          if-no-files-found: ignore
+
+  terraform:
+    name: terraform (fmt + validate + tflint + test)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VER }}
+          terraform_wrapper: false
+      - name: fmt
+        run: terraform fmt -check -recursive infra
+      - name: validate
+        run: |
+          for d in infra/bootstrap infra/platform infra/modules/*; do
+            terraform -chdir="$d" init -backend=false -input=false -no-color >/dev/null
+            terraform -chdir="$d" validate -no-color
+          done
+      - uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
+        with:
+          tflint_version: ${{ env.TFLINT_VER }}
+      - name: tflint
+        working-directory: infra
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"
+          tflint --recursive --config "$GITHUB_WORKSPACE/.tflint.hcl" --format compact
+      - name: terraform test (mocked AWS provider)
+        run: |
+          for d in infra/platform infra/modules/batch infra/modules/storage; do
+            terraform -chdir="$d" test -no-color
+          done
+
+  checkov:
+    name: checkov (IaC security)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+        with:
+          directory: infra
+          framework: terraform
+          quiet: true
+          soft_fail: false
+          output_format: cli,sarif
+          output_file_path: console,checkov.sarif
+      - if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: checkov.sarif
+          category: checkov
+
+  container:
+    name: container (build + Trivy)
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: containers/nextflow-head/Dockerfile
+          platforms: linux/amd64
+          load: true
+          tags: gp/nextflow-head:ci
+          build-args: PIPELINE_VERSION=ci-${{ github.sha }}
+      - name: smoke test (stub run, network disabled)
+        run: |
+          docker run --rm --network none -v "$PWD/pipeline/tests:/opt/pipeline/tests:ro" \
+            gp/nextflow-head:ci -profile test -stub --outdir /work/out
+      - name: Trivy (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gp/nextflow-head:ci
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          trivyignores: .trivyignore
+          exit-code: "1"
+          format: table
+      - name: Trivy SARIF (all severities, for the Security tab)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: gp/nextflow-head:ci
+          scanners: vuln
+          format: sarif
+          output: trivy.sarif
+          exit-code: "0"
+      - if: always() && github.event.pull_request.head.repo.full_name == github.repository
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: trivy.sarif
+          category: trivy
+
+  plan:
+    name: terraform plan (${{ matrix.env }})
+    # Runs once the bootstrap stack exists and the repo variables are set (docs/runbook.md).
+    if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != '' && github.event.pull_request.head.repo.full_name == github.repository
+    needs: [terraform, python]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        env: [dev, prod]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ env.PY_VER }}
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: ${{ env.TF_VER }}
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          role-session-name: gh-plan-${{ github.run_id }}
+      - run: scripts/build_api.sh
+      - name: plan
+        id: plan
+        working-directory: infra/platform
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config=../envs/${{ matrix.env }}.backend.hcl \
+            -backend-config=bucket=${{ vars.TF_STATE_BUCKET }}
+          set +e
+          terraform plan -input=false -no-color -lock=false -var-file=../envs/${{ matrix.env }}.tfvars -out=tfplan > plan.txt 2>&1
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
+          set -e
+          python3 ../../scripts/cost_estimate.py ${{ matrix.env }} > cost.txt
+          {
+            echo "### terraform plan: \`${{ matrix.env }}\`"
+            echo '```'
+            grep -E '^(Plan:|No changes|Error)' plan.txt || true
+            echo '```'
+            echo '<details><summary>Full plan</summary>'
+            echo
+            echo '```hcl'
+            tail -c 60000 plan.txt
+            echo '```'
+            echo '</details>'
+            echo
+            echo '<details><summary>Cost estimate (list-price assumptions)</summary>'
+            echo
+            echo '```'
+            cat cost.txt
+            echo '```'
+            echo '</details>'
+          } > comment.md
+      - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: plan-${{ matrix.env }}
+          path: infra/platform/comment.md
+      - if: steps.plan.outputs.exitcode != '0'
+        run: exit 1
