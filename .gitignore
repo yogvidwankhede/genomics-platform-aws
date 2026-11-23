@@ -42,3 +42,4 @@ infra/modules/**/.terraform.lock.hcl
 infra/**/.build/
 .tflint.d/
 .venv/
+build/

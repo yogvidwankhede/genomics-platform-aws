@@ -4,6 +4,7 @@
 The platform API serves this file straight from S3, so its shape is a contract:
 bump SCHEMA_VERSION on any breaking change.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,7 @@ def parse_markdup(path: Path) -> dict:
         if line.startswith("## METRICS CLASS"):
             header = lines[i + 1].split("\t")
             values = lines[i + 2].split("\t")
-            row = dict(zip(header, values))
+            row = dict(zip(header, values, strict=False))
             return {
                 "percent_duplication": _num(row.get("PERCENT_DUPLICATION")),
                 "read_pairs_examined": _num(row.get("READ_PAIRS_EXAMINED")),

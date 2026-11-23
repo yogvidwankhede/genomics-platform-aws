@@ -212,7 +212,7 @@ data "aws_iam_policy_document" "submit_run" {
   }
   statement {
     sid       = "ReadSamplesheet"
-    actions   = ["s3:GetObject", "s3:HeadObject"]
+    actions   = ["s3:GetObject"]
     resources = ["${var.bucket_arns["inputs"]}/runs/*"]
   }
   statement {
