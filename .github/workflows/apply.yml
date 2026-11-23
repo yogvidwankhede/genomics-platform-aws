@@ -1,0 +1,55 @@
+name: apply
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: apply (${{ inputs.environment }})
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e # v4.0.1
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+          role-session-name: gh-apply-${{ inputs.environment }}-${{ github.run_id }}
+      - run: scripts/build_api.sh
+      - name: plan
+        working-directory: infra/platform
+        run: |
+          terraform init -input=false -no-color \
+            -backend-config=../envs/${{ inputs.environment }}.backend.hcl \
+            -backend-config=bucket=${{ vars.TF_STATE_BUCKET }}
+          terraform plan -input=false -no-color -var-file=../envs/${{ inputs.environment }}.tfvars -out=tfplan
+          python3 ../../scripts/cost_estimate.py ${{ inputs.environment }} | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: apply
+        working-directory: infra/platform
+        run: terraform apply -input=false -no-color tfplan
+      - name: push head image (skipped if this version already exists; ECR tags are immutable)
+        run: |
+          REPO_URL="$(terraform -chdir=infra/platform output -raw head_repository_url)"
+          VERSION="$(sed -nE "s/^[[:space:]]+version[[:space:]]+= '(.*)'.*/\1/p" pipeline/nextflow.config | head -1)"
+          if aws ecr describe-images --repository-name "${REPO_URL#*/}" --image-ids imageTag="$VERSION" >/dev/null 2>&1; then
+            echo "head image $VERSION already in ECR"
+          else
+            scripts/push_head_image.sh "$REPO_URL" "$VERSION"
+          fi

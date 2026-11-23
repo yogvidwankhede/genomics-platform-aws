@@ -1,0 +1,33 @@
+name: deploy
+
+# Apply only happens from main. dev applies automatically; prod waits on the `prod` GitHub
+# Environment's required reviewers (the manual approval gate). Each environment's apply role
+# trusts only `repo:<repo>:environment:<env>` tokens, so the gate is enforced by AWS IAM too.
+on:
+  push:
+    branches: [main]
+    paths: ["infra/**", "services/**", "pipeline/**", "containers/**", "scripts/build_api.sh"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+jobs:
+  dev:
+    if: vars.AWS_DEPLOY_ENABLED == 'true'
+    uses: ./.github/workflows/apply.yml
+    with:
+      environment: dev
+    secrets: inherit
+
+  prod:
+    needs: dev
+    if: vars.AWS_DEPLOY_ENABLED == 'true'
+    uses: ./.github/workflows/apply.yml
+    with:
+      environment: prod
+    secrets: inherit
