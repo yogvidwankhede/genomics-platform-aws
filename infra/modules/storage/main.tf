@@ -53,6 +53,30 @@ data "aws_iam_policy_document" "kms" {
       values   = [local.account_id]
     }
   }
+  # EBS volumes of Batch instances use this key. EC2 launches them through AWS service-linked
+  # roles (Spot/Fleet/Auto Scaling), so allow key use *only via EC2* and only from this account.
+  statement {
+    sid = "EbsViaEc2InThisAccount"
+    actions = [
+      "kms:Encrypt", "kms:Decrypt", "kms:ReEncrypt*", "kms:GenerateDataKey*",
+      "kms:DescribeKey", "kms:CreateGrant",
+    ]
+    resources = ["*"]
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "kms:CallerAccount"
+      values   = [local.account_id]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values   = ["ec2.${local.region}.amazonaws.com"]
+    }
+  }
 }
 
 resource "aws_kms_key" "data" {
