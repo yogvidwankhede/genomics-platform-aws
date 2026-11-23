@@ -73,7 +73,7 @@ cost. A cold end-to-end DeepVariant run was not timed on its own.
 | `terraform validate` (2 roots + 7 modules) | 9/9 valid |
 | `terraform test` (mocked AWS provider) | 9/9 runs passed (platform dev/prod plans, input validation, Batch, storage) |
 | tflint 0.60.0 + AWS ruleset 0.50.0 | 0 issues |
-| checkov 3.4.6 | 390 passed, 0 failed, 32 skipped (justified inline) |
+| checkov 3.4.6 (Python 3.13, same as CI) | 464 passed, 0 failed, 50 skipped (each justified inline). The first CI run caught 7 graph-check failures a local Python 3.15 build missed; fixed in #5 |
 | Trivy 0.76.2 on head image (HIGH/CRITICAL, fixable) | 0 after removing the unused Docker CLI; 1 accepted CVE in Nextflow's launcher jar (`.trivyignore`) |
 | actionlint 1.7.9 / pre-commit (13 hooks) | clean / all pass |
 
