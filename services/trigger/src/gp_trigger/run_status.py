@@ -41,7 +41,9 @@ def load_summaries(bucket: str, run_id: str) -> dict:
                 continue
             doc = json.loads(s3.get_object(Bucket=bucket, Key=obj["Key"])["Body"].read())
             bench = doc.get("benchmark") or {}
-            out[doc["sample"]] = {
+            # schema v2 summaries are per sample x caller; v1 had one caller per run
+            key = f"{doc['sample']}.{doc['caller']}" if doc.get("caller") else doc["sample"]
+            out[key] = {
                 "reads_before_filtering": doc.get("qc", {}).get("reads_before_filtering"),
                 "percent_duplication": doc.get("qc", {}).get("percent_duplication"),
                 "snps": doc.get("variants", {}).get("snps"),
