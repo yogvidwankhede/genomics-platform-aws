@@ -25,6 +25,14 @@ locals {
       "https://${var.artifacts_bucket}.s3.${data.aws_region.current.region}.amazonaws.com/bootstrap/awscli-exe-linux-x86_64.zip"
     cd /tmp && python3 -m zipfile -e awscli.zip /tmp && chmod -R +x /tmp/aws
     /tmp/aws/install --install-dir /opt/aws-cli --bin-dir /opt/aws-cli/bin
+    # Nextflow mounts /opt/aws-cli into every task container. Some tool images (hap.py's
+    # biocontainer) ship no libz, which the CLI needs, so bundle the host's copy and point the
+    # loader at it through a wrapper (scripts/test_awscli_in_images.sh checks every image).
+    mkdir -p /opt/aws-cli/lib
+    cp -L /usr/lib64/libz.so.1 /opt/aws-cli/lib/
+    mv /opt/aws-cli/bin/aws /opt/aws-cli/bin/aws.real
+    printf '%s\n' '#!/bin/sh' 'LD_LIBRARY_PATH=/opt/aws-cli/lib$${LD_LIBRARY_PATH:+:$$LD_LIBRARY_PATH} exec /opt/aws-cli/bin/aws.real "$$@"' > /opt/aws-cli/bin/aws
+    chmod 0755 /opt/aws-cli/bin/aws
     /opt/aws-cli/bin/aws --version
     rm -rf /tmp/aws /tmp/awscli.zip
     echo ECS_ENABLE_SPOT_INSTANCE_DRAINING=true >> /etc/ecs/ecs.config
