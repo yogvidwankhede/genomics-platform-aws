@@ -4,6 +4,7 @@
     python3 services/trigger/src/gp_trigger/cli.py submit --env dev --run-id my-run \
         --samplesheet s3://gp-dev-inputs-.../runs/my-run/samplesheet.csv [--params-file p.json]
 """
+
 from __future__ import annotations
 
 import argparse

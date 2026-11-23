@@ -1,0 +1,43 @@
+{
+  "benchmark": {
+    "INDEL": {
+      "f1": 0.9801979999999999,
+      "false_negatives": 9,
+      "false_positives": 7,
+      "precision": 0.9826299999999999,
+      "recall": 0.977778,
+      "true_positives": 396,
+      "truth_total": 405
+    },
+    "SNP": {
+      "f1": 0.998116,
+      "false_negatives": 4,
+      "false_positives": 6,
+      "precision": 0.99774,
+      "recall": 0.998492,
+      "true_positives": 2648,
+      "truth_total": 2652
+    }
+  },
+  "pipeline_version": "0.1.0",
+  "qc": {
+    "duplication_rate_fastp": 0.0552173,
+    "gc_content_after_filtering": 0.39427,
+    "percent_duplication": 0.111089,
+    "q30_rate_after_filtering": 0.897511,
+    "read_pairs_examined": 243465,
+    "reads_after_filtering": 487066,
+    "reads_before_filtering": 500604
+  },
+  "run_name": "cranky_fermat",
+  "sample": "HG001",
+  "schema_version": 1,
+  "variants": {
+    "indels": 701,
+    "mnps": 0,
+    "multiallelic_sites": 0,
+    "records": 3528,
+    "snps": 2815,
+    "ts_tv": 2.17
+  }
+}

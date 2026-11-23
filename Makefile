@@ -9,6 +9,7 @@ TF_BOOTSTRAP := terraform -chdir=infra/bootstrap
 TFVARS       := -var-file=../envs/$(ENV).tfvars
 PLAN_FILE    := $(ENV).tfplan
 TFLINT_IMAGE := ghcr.io/terraform-linters/tflint:v0.60.0
+PYTHON       ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python3)
 HOURS        ?= 3
 RUNS         ?= 1
 
@@ -110,9 +111,20 @@ push-head: ## Build + push the head image tagged with the pipeline version
 submit-benchmark: ## Upload GIAB slice and start a run (MODE=direct|event, CALLER=gatk|deepvariant)
 	scripts/submit_benchmark.sh $(ENV)
 
-test-trigger: ## pytest for the trigger package
-	cd services/trigger && ../../.venv/bin/pytest
+test-trigger: ## pytest for the trigger Lambdas
+	cd services/trigger && ../../.venv/bin/pytest --cov=gp_trigger
+
+test-api: ## pytest for the REST API
+	cd services/api && ../../.venv/bin/pytest --cov=gp_api
+
+venv: ## Create .venv (Python 3.13 = Lambda runtime) with pinned dev deps
+	python3.13 -m venv .venv
+	.venv/bin/pip install -q -r requirements-dev.txt
+
+lint-python: ## ruff lint + format check
+	.venv/bin/ruff check services pipeline/bin scripts
+	.venv/bin/ruff format --check services pipeline/bin scripts
 
 .PHONY: build-api
 build-api: ## Build the API Lambda zip (no-op until services/api exists)
-	@if [[ -f services/api/pyproject.toml ]]; then scripts/build_api.sh; else mkdir -p build && python3 -c "import zipfile; zipfile.ZipFile('build/api.zip','w').writestr('gp_api/__init__.py','')"; fi
+	PYTHON=$(PYTHON) scripts/build_api.sh
