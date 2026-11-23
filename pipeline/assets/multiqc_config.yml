@@ -1,0 +1,16 @@
+title: "genomics-platform-aws germline QC"
+report_comment: "Germline short-variant pipeline. Benchmark metrics come from hap.py against the GIAB truth set."
+show_analysis_paths: false
+run_modules:
+  - fastqc
+  - fastp
+  - picard
+  - bcftools
+  - happy
+  - custom_content
+module_order:
+  - fastqc
+  - fastp
+  - picard
+  - bcftools
+  - happy

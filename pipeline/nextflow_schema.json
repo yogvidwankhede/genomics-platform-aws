@@ -1,0 +1,95 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://raw.githubusercontent.com/yogvidwankhede/genomics-platform-aws/main/pipeline/nextflow_schema.json",
+    "title": "genomics-platform-aws pipeline parameters",
+    "description": "Germline short-variant calling with GIAB validation",
+    "type": "object",
+    "$defs": {
+        "input_output_options": {
+            "title": "Input/output options",
+            "type": "object",
+            "required": ["input", "outdir"],
+            "properties": {
+                "input": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "mimetype": "text/csv",
+                    "pattern": "^\\S+\\.csv$",
+                    "description": "Samplesheet CSV with columns sample,fastq_1,fastq_2."
+                },
+                "outdir": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "description": "Output directory (local path or s3:// URI)."
+                },
+                "publish_mode": {
+                    "type": "string",
+                    "default": "copy",
+                    "enum": ["copy", "symlink", "link", "move"],
+                    "description": "publishDir mode."
+                }
+            }
+        },
+        "reference_options": {
+            "title": "Reference options",
+            "type": "object",
+            "required": ["fasta"],
+            "properties": {
+                "fasta": {
+                    "type": "string",
+                    "format": "file-path",
+                    "exists": true,
+                    "pattern": "^\\S+\\.fn?a(sta)?(\\.gz)?$",
+                    "description": "Reference FASTA (uncompressed or bgzipped)."
+                },
+                "fasta_fai": { "type": "string", "format": "file-path", "exists": true, "description": "Optional pre-built .fai." },
+                "fasta_dict": { "type": "string", "format": "file-path", "exists": true, "description": "Optional pre-built GATK .dict." },
+                "bwamem2_index": { "type": "string", "format": "directory-path", "exists": true, "description": "Optional directory with a pre-built bwa-mem2 index." },
+                "intervals": { "type": "string", "format": "file-path", "exists": true, "description": "Optional BED restricting variant calling." }
+            }
+        },
+        "calling_options": {
+            "title": "Variant calling options",
+            "type": "object",
+            "properties": {
+                "caller": {
+                    "type": "string",
+                    "default": "gatk",
+                    "enum": ["gatk", "deepvariant"],
+                    "description": "Germline caller."
+                },
+                "filter_expr": {
+                    "type": "string",
+                    "default": "QUAL<30 || FORMAT/DP<5",
+                    "description": "bcftools expression; matching records are soft-filtered as LowQual."
+                },
+                "skip_fastqc": { "type": "boolean", "default": false, "description": "Skip FastQC on raw reads." }
+            }
+        },
+        "benchmark_options": {
+            "title": "Benchmark options",
+            "type": "object",
+            "properties": {
+                "truth_vcf": { "type": "string", "format": "file-path", "exists": true, "description": "Truth VCF (bgzipped + .tbi alongside), e.g. GIAB." },
+                "truth_bed": { "type": "string", "format": "file-path", "exists": true, "description": "Confident-region BED for the truth set." }
+            }
+        },
+        "infrastructure_options": {
+            "title": "Infrastructure options",
+            "type": "object",
+            "properties": {
+                "aws_region": { "type": "string", "default": "us-east-1", "description": "AWS region for the awsbatch profile." },
+                "aws_queue": { "type": "string", "description": "AWS Batch job queue for the awsbatch profile." },
+                "help": { "type": ["boolean", "string"], "description": "Show help." }
+            }
+        }
+    },
+    "allOf": [
+        { "$ref": "#/$defs/input_output_options" },
+        { "$ref": "#/$defs/reference_options" },
+        { "$ref": "#/$defs/calling_options" },
+        { "$ref": "#/$defs/benchmark_options" },
+        { "$ref": "#/$defs/infrastructure_options" }
+    ]
+}
