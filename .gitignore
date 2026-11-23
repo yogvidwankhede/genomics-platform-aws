@@ -1,0 +1,38 @@
+# data + run outputs (never committed; see scripts/fetch_benchmark_data.sh)
+data/
+results/
+work/
+.nextflow/
+.nextflow.log*
+.nf-test/
+.nf-test.log
+pipeline/null/
+
+# terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan*
+crash.log
+override.tf
+override.tf.json
+.terraform.tfstate.lock.info
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.zip
+
+# misc
+.DS_Store
+.env
+.env.*
+!.env.example
+*.pem
