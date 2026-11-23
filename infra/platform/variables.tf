@@ -54,6 +54,12 @@ variable "max_vcpus" {
   default     = 16
 }
 
+variable "batch_instance_types" {
+  description = "EC2 instance types/families for the Spot compute environment."
+  type        = list(string)
+  default     = ["m6i", "m5", "c6i", "c5", "r6i", "r5"]
+}
+
 variable "monthly_budget_usd" {
   description = "AWS Budgets limit."
   type        = number
@@ -64,6 +70,12 @@ variable "force_destroy" {
   description = "Allow destroy of non-empty buckets/repos (dev only)."
   type        = bool
   default     = false
+}
+
+variable "reserve_lambda_concurrency" {
+  description = "Reserve per-function Lambda concurrency (needs an account limit above the default 10 of new accounts)."
+  type        = bool
+  default     = true
 }
 
 variable "enable_cloudtrail" {

@@ -7,7 +7,15 @@ REGISTRY="${1:?usage: mirror_images.sh <ecr-registry-host>}"
 REGION="$(cut -d. -f4 <<<"$REGISTRY")"
 cd "$(dirname "$0")/.."
 
-mapfile -t IMAGES < <(grep -ho "container \"\${params.container_registry ?: ''}[^\"]*\"" pipeline/modules/local/*/main.nf \
+# Portable to macOS bash 3.2 (no mapfile). SKIP: optional regex, e.g. SKIP=deepvariant.
+IMAGES=()
+while IFS= read -r img; do
+  if [[ -n "${SKIP:-}" ]] && grep -Eq "$SKIP" <<<"$img"; then
+    echo "  - skipping $img (SKIP=$SKIP)"
+    continue
+  fi
+  IMAGES+=("$img")
+done < <(grep -ho "container \"\${params.container_registry ?: ''}[^\"]*\"" pipeline/modules/local/*/main.nf \
   | sed -E "s/.*''\}([^\"]+)\"/\1/" | sort -u)
 echo "Mirroring ${#IMAGES[@]} images to ${REGISTRY}/mirror/"
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$REGISTRY" >/dev/null

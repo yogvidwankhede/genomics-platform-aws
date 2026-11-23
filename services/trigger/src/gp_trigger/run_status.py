@@ -93,11 +93,15 @@ def handler(event: dict, context: object = None) -> dict:
         values[":m"] = _to_dynamo(summaries)
 
     try:
-        # Out-of-order delivery must never move a finished run back to RUNNING.
+        # Only the job currently on record may change the run (a rerun replaces job_id, so late
+        # events from a superseded attempt are dropped), and a finished attempt never regresses.
         runs.update_item(
             Key={"run_id": run_id},
             UpdateExpression="SET " + ", ".join(sets),
-            ConditionExpression="attribute_not_exists(#s) OR (#s <> :done AND #s <> :failed)",
+            ConditionExpression=(
+                "(attribute_not_exists(job_id) OR job_id = :j) AND "
+                "(attribute_not_exists(#s) OR (#s <> :done AND #s <> :failed))"
+            ),
             ExpressionAttributeNames=names,
             ExpressionAttributeValues=values,
         )

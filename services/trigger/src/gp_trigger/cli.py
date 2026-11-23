@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -40,7 +41,30 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(request, indent=2))
         return 0
     job = boto3.client("batch").submit_job(**request)
-    print(json.dumps({"run_id": args.run_id, "job_id": job["jobId"], "job_name": job["jobName"]}))
+    # Register (or re-register) the attempt so run_status tracks this job: a rerun of a FAILED
+    # run resets it to SUBMITTED with the new job_id; events from the old job are then ignored.
+    table = boto3.resource("dynamodb").Table(f"gp-{args.env}-runs")
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    item = table.update_item(
+        Key={"run_id": args.run_id},
+        UpdateExpression=(
+            "SET #s = :s, job_id = :j, job_name = :n, samplesheet = :ss, updated_at = :u, "
+            "submitted_at = if_not_exists(submitted_at, :u), attempt = if_not_exists(attempt, :zero) + :one "
+            "REMOVE status_reason, stopped_at, duration_seconds"
+        ),
+        ExpressionAttributeNames={"#s": "status"},
+        ExpressionAttributeValues={
+            ":s": "SUBMITTED",
+            ":j": job["jobId"],
+            ":n": job["jobName"],
+            ":ss": args.samplesheet,
+            ":u": now,
+            ":zero": 0,
+            ":one": 1,
+        },
+        ReturnValues="UPDATED_NEW",
+    )
+    print(json.dumps({"run_id": args.run_id, "job_id": job["jobId"], "attempt": int(item["Attributes"]["attempt"])}))
     return 0
 
 

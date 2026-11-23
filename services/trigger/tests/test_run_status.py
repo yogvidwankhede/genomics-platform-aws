@@ -13,8 +13,11 @@ SUMMARY = {
 }
 
 
-def _seed(aws, run_id, status="SUBMITTED"):
-    aws["table"].put_item(Item={"run_id": run_id, "status": status, "submitted_at": "2026-11-22T00:00:00+00:00"})
+def _seed(aws, run_id, status="SUBMITTED", job_id=None):
+    item = {"run_id": run_id, "status": status, "submitted_at": "2026-11-22T00:00:00+00:00"}
+    if job_id:
+        item["job_id"] = job_id
+    aws["table"].put_item(Item=item)
 
 
 def test_success_folds_summaries_into_record(aws):
@@ -59,3 +62,20 @@ def test_ignores_non_head_jobs(aws):
     event = batch_event("x", "FAILED")
     event["detail"]["jobName"] = "nf-quay-io-biocontainers-fastp"
     assert run_status.handler(event)["status"] == "IGNORED"
+
+
+def test_rerun_with_new_job_is_tracked(aws):
+    # operator CLI re-registered a FAILED run with a new job id (rerun with -resume)
+    _seed(aws, "r5", status="SUBMITTED", job_id="job-2")
+    event = batch_event("r5", "SUCCEEDED", started=1000, stopped=61000)
+    event["detail"]["jobId"] = "job-2"
+    assert run_status.handler(event)["status"] == "SUCCEEDED"
+    assert aws["table"].get_item(Key={"run_id": "r5"})["Item"]["status"] == "SUCCEEDED"
+
+
+def test_late_event_from_superseded_job_is_ignored(aws):
+    _seed(aws, "r6", status="RUNNING", job_id="job-2")
+    old = batch_event("r6", "FAILED", started=1, stopped=2, reason="old attempt")
+    old["detail"]["jobId"] = "job-1"
+    assert run_status.handler(old)["status"] == "STALE"
+    assert aws["table"].get_item(Key={"run_id": "r6"})["Item"]["status"] == "RUNNING"

@@ -11,6 +11,11 @@ output "bucket_names" {
   )
 }
 
+output "logs_bucket_with_policy" {
+  description = "Logs bucket name, available only after its bucket policy (CloudTrail access) is attached."
+  value       = aws_s3_bucket_policy.all["logs"].bucket
+}
+
 output "bucket_arns" {
   description = "Map of logical name -> bucket ARN."
   value = merge(

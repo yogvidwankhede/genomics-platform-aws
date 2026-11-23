@@ -65,6 +65,12 @@ variable "log_retention_days" {
   default     = 30
 }
 
+variable "reserve_concurrency" {
+  description = "Reserve Lambda concurrency per function. New accounts have a 10-execution account limit and AWS refuses any reservation, so set false there."
+  type        = bool
+  default     = true
+}
+
 variable "submit_concurrency" {
   description = "Reserved concurrency for the submit Lambda: caps how many runs can start at once."
   type        = number

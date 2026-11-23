@@ -154,6 +154,18 @@
                     "type": "string",
                     "pattern": "^\\S+/$",
                     "description": "Registry prefix (ending in '/') prepended to every pinned container, e.g. the ECR mirror. Unset = pull from the public registries."
+                },
+                "max_cpus": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 8,
+                    "description": "awsbatch: maximum vCPUs any task may request."
+                },
+                "max_memory": {
+                    "type": "string",
+                    "default": "14.GB",
+                    "pattern": "^\\d+(\\.\\d+)?\\.?\\s*(K|M|G|T)?B$",
+                    "description": "awsbatch: maximum memory any task may request, e.g. '6.GB'."
                 }
             }
         }
