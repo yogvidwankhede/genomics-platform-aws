@@ -1,0 +1,10 @@
+[project]
+name = "gp-research"
+version = "0.1.0"
+description = "Statistical analysis of the germline benchmark matrix (bootstrap CIs, paired tests, Mendelian consistency)"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+addopts = "-q"

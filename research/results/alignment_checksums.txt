@@ -1,0 +1,6 @@
+alignment record checksums:
+r1_a         487295 records, md5 0ac0b09b03feb476
+r1_b         487295 records, md5 0ac0b09b03feb476
+r2_cpu2      487295 records, md5 0ac0b09b03feb476
+r3_noK_cpu8  487295 records, md5 0ac0b09b03feb476
+r3_noK_cpu2  487295 records, md5 17b173c820fbbcb7

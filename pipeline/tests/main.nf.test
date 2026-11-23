@@ -11,14 +11,16 @@ nextflow_pipeline {
             }
         }
         then {
-            def summary = new groovy.json.JsonSlurper().parse(file("$outputDir/summary/test.run_summary.json"))
+            def summary = new groovy.json.JsonSlurper().parse(file("$outputDir/summary/test.gatk.run_summary.json"))
             assertAll(
                 { assert workflow.success },
                 { assert workflow.trace.failed().size() == 0 },
                 { assert workflow.trace.succeeded().size() == 14 },
                 { assert file("$outputDir/multiqc/multiqc_report.html").exists() },
-                { assert file("$outputDir/variants/test/test.filtered.vcf.gz").exists() },
-                { assert file("$outputDir/benchmark/test/test.happy.summary.csv").exists() },
+                { assert file("$outputDir/variants/test.gatk/test.gatk.filtered.vcf.gz").exists() },
+                { assert file("$outputDir/benchmark/test.gatk/test.gatk.happy.summary.csv").exists() },
+                { assert summary.caller == 'gatk' && summary.sample == 'test' && summary.schema_version == 2 },
+                { assert summary.qc.mean_coverage_estimate > 20 },
                 // accuracy floors, not exact values: a regression gate that tolerates tool bumps
                 { assert summary.benchmark.SNP.f1   >= 0.95 },
                 { assert summary.benchmark.INDEL.f1 >= 0.90 },
@@ -29,6 +31,33 @@ nextflow_pipeline {
                     summary.benchmark.SNP.truth_total,
                     summary.benchmark.INDEL.truth_total
                   ).match("inputs_and_truth") }
+            )
+        }
+    }
+
+    test("experiment matrix: downsampled replicate + stratified hap.py") {
+        when {
+            params {
+                input          = "${projectDir}/tests/data/samplesheet_matrix.csv"
+                stratification = "${projectDir}/tests/data/strata"
+                skip_fastqc    = true
+                outdir         = "$outputDir"
+            }
+        }
+        then {
+            def full = new groovy.json.JsonSlurper().parse(file("$outputDir/summary/test_full.gatk.run_summary.json"))
+            def half = new groovy.json.JsonSlurper().parse(file("$outputDir/summary/test_half.gatk.run_summary.json"))
+            def extended = path("$outputDir/benchmark/test_half.gatk/test_half.gatk.happy.extended.csv").text
+            assertAll(
+                { assert workflow.success },
+                // seeded 50% downsampling keeps roughly half the read pairs
+                { assert half.qc.reads_before_filtering > 0.45 * full.qc.reads_before_filtering },
+                { assert half.qc.reads_before_filtering < 0.55 * full.qc.reads_before_filtering },
+                { assert half.downsample == 0.5 && half.seed == 7 && half.individual == 'test' },
+                // both rows are scored against the same truth set
+                { assert half.benchmark.SNP.truth_total == full.benchmark.SNP.truth_total },
+                // stratified rows are present in hap.py's extended output
+                { assert extended.contains('first_half') && extended.contains('second_half') }
             )
         }
     }

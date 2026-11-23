@@ -35,6 +35,8 @@ def test_qc(client):
     assert body == [
         {
             "sample": "HG001",
+            "caller": None,  # schema v1 summary: one caller per run, not recorded
+            "mean_coverage_estimate": None,
             "reads_before_filtering": 500604,
             "reads_after_filtering": 487066,
             "q30_rate_after_filtering": 0.897511,
@@ -72,3 +74,27 @@ def test_lambda_function_url_event(client):
     }
     resp = handler(event, None)
     assert resp["statusCode"] == 200
+
+
+def test_multi_caller_summaries_are_distinguished(client):
+    import json
+
+    import boto3
+
+    s3 = boto3.client("s3", region_name="us-east-1")
+    for caller in ("gatk", "deepvariant"):
+        doc = {
+            "schema_version": 2,
+            "sample": "HG002",
+            "caller": caller,
+            "qc": {"reads_before_filtering": 1, "mean_coverage_estimate": 30.1},
+            "variants": {"snps": 10},
+            "benchmark": None,
+        }
+        s3.put_object(
+            Bucket="gp-test-results", Key=f"runs/run-old/summary/HG002.{caller}.run_summary.json", Body=json.dumps(doc)
+        )
+    callers = {(r["sample"], r["caller"]) for r in client.get("/runs/run-old/variants").json()}
+    assert {("HG002", "gatk"), ("HG002", "deepvariant")} <= callers
+    qc = [r for r in client.get("/runs/run-old/qc").json() if r["sample"] == "HG002"]
+    assert {r["mean_coverage_estimate"] for r in qc} == {30.1}

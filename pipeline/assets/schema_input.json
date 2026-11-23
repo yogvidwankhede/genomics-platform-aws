@@ -2,10 +2,12 @@
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "https://raw.githubusercontent.com/yogvidwankhede/genomics-platform-aws/main/pipeline/assets/schema_input.json",
     "title": "Samplesheet schema",
-    "description": "One row per sample: paired-end FASTQs. Paths may be absolute, s3://, or relative to the samplesheet.",
+    "description": "One row per sequencing unit: paired FASTQs, optional truth set and optional seeded downsampling. Paths may be absolute, s3://, or relative to the samplesheet.",
     "type": "array",
     "minItems": 1,
-    "uniqueEntries": ["sample"],
+    "uniqueEntries": [
+        "sample"
+    ],
     "items": {
         "type": "object",
         "properties": {
@@ -13,7 +15,18 @@
                 "type": "string",
                 "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
                 "errorMessage": "Sample ID must be 1-64 chars of letters, digits, '.', '_' or '-' (no spaces)",
-                "meta": ["id"]
+                "meta": [
+                    "id"
+                ]
+            },
+            "individual": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$",
+                "errorMessage": "individual must be 1-64 chars of letters, digits, '.', '_' or '-'",
+                "meta": [
+                    "individual"
+                ],
+                "description": "Biological sample (read-group SM). Defaults to `sample`; lets several rows (e.g. downsampling replicates) share one individual."
             },
             "fastq_1": {
                 "type": "string",
@@ -24,8 +37,45 @@
                 "type": "string",
                 "pattern": "^\\S+\\.f(ast)?q\\.gz$",
                 "errorMessage": "fastq_2 must be a gzipped FASTQ (.fq.gz / .fastq.gz) with no spaces"
+            },
+            "truth_vcf": {
+                "type": "string",
+                "pattern": "^\\S+\\.vcf\\.gz$",
+                "errorMessage": "truth_vcf must be a bgzipped VCF (.vcf.gz) with a .tbi next to it",
+                "description": "Optional per-row truth VCF; overrides --truth_vcf."
+            },
+            "truth_bed": {
+                "type": "string",
+                "pattern": "^\\S+\\.bed$",
+                "errorMessage": "truth_bed must be a .bed file",
+                "description": "Optional per-row confident regions; overrides --truth_bed."
+            },
+            "downsample": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1,
+                "default": 1,
+                "meta": [
+                    "downsample"
+                ],
+                "errorMessage": "downsample must be a fraction in (0, 1]",
+                "description": "Fraction of read pairs to keep (seqtk sample)."
+            },
+            "seed": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 100,
+                "meta": [
+                    "seed"
+                ],
+                "errorMessage": "seed must be a non-negative integer",
+                "description": "Random seed for downsampling (replicates)."
             }
         },
-        "required": ["sample", "fastq_1", "fastq_2"]
+        "required": [
+            "sample",
+            "fastq_1",
+            "fastq_2"
+        ]
     }
 }

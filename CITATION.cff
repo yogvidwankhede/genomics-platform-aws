@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+message: "If you use this pipeline, platform or benchmark, please cite it as below."
+title: "genomics-platform-aws: an event-driven germline variant-calling platform with a reproducible GIAB benchmark"
+type: software
+authors:
+  - family-names: Wankhede
+    given-names: Yogvid
+repository-code: "https://github.com/yogvidwankhede/genomics-platform-aws"
+license: MIT
+version: 0.1.4
+date-released: 2026-11-23
+keywords:
+  - nextflow
+  - germline variant calling
+  - GIAB
+  - benchmarking
+  - DeepVariant
+  - GATK
+  - AWS Batch
+  - terraform
+  - reproducibility
+references:
+  - type: article
+    title: "Best practices for benchmarking germline small-variant calls in human genomes"
+    authors:
+      - family-names: Krusche
+        given-names: Peter
+    journal: "Nature Biotechnology"
+    year: 2019
+  - type: article
+    title: "An open resource for accurately benchmarking small variant and reference calls"
+    authors:
+      - family-names: Zook
+        given-names: Justin M.
+    journal: "Nature Biotechnology"
+    year: 2019

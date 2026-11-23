@@ -34,6 +34,24 @@ def test_success_folds_summaries_into_record(aws):
     assert int(item["samples"]["HG001"]["snps"]) == 2815
 
 
+def test_multi_caller_summaries_do_not_collide(aws):
+    _seed(aws, "r7")
+    for caller, f1 in (("gatk", 0.998), ("deepvariant", 0.999)):
+        doc = {
+            **SUMMARY,
+            "schema_version": 2,
+            "caller": caller,
+            "benchmark": {"SNP": {"f1": f1}, "INDEL": {"f1": 0.98}},
+        }
+        aws["s3"].put_object(
+            Bucket="gp-test-results", Key=f"runs/r7/summary/HG001.{caller}.run_summary.json", Body=json.dumps(doc)
+        )
+    run_status.handler(batch_event("r7", "SUCCEEDED", started=1, stopped=2))
+    samples = aws["table"].get_item(Key={"run_id": "r7"})["Item"]["samples"]
+    assert set(samples) == {"HG001.gatk", "HG001.deepvariant"}
+    assert float(samples["HG001.deepvariant"]["snp_f1"]) == 0.999
+
+
 def test_failure_records_reason_and_metric(aws, capsys):
     _seed(aws, "r2")
     run_status.handler(

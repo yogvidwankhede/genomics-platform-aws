@@ -35,6 +35,8 @@ class Health(BaseModel):
 
 class SampleQC(BaseModel):
     sample: str
+    caller: str | None = None
+    mean_coverage_estimate: float | None = None
     reads_before_filtering: int | None = None
     reads_after_filtering: int | None = None
     q30_rate_after_filtering: float | None = None
@@ -53,6 +55,7 @@ class BenchmarkMetrics(BaseModel):
 
 class SampleVariants(BaseModel):
     sample: str
+    caller: str | None = None
     records: int | None = None
     snps: int | None = None
     indels: int | None = None
@@ -100,7 +103,13 @@ def get_run(run_id: RUN_ID, repo: Repo) -> dict[str, Any]:
 @app.get("/runs/{run_id}/qc", response_model=list[SampleQC])
 def get_qc(run_id: RUN_ID, repo: Repo) -> list[SampleQC]:
     return [
-        SampleQC(sample=s["sample"], **{k: v for k, v in s.get("qc", {}).items() if k in SampleQC.model_fields})
+        SampleQC(
+            sample=s["sample"],
+            caller=s.get("caller"),
+            **{
+                k: v for k, v in s.get("qc", {}).items() if k in SampleQC.model_fields and k not in ("sample", "caller")
+            },
+        )
         for s in _require_summaries(repo, run_id)
     ]
 
@@ -110,5 +119,5 @@ def get_variants(run_id: RUN_ID, repo: Repo) -> list[SampleVariants]:
     out = []
     for s in _require_summaries(repo, run_id):
         v = {k: val for k, val in s.get("variants", {}).items() if k in SampleVariants.model_fields}
-        out.append(SampleVariants(sample=s["sample"], benchmark=s.get("benchmark"), **v))
+        out.append(SampleVariants(sample=s["sample"], caller=s.get("caller"), benchmark=s.get("benchmark"), **v))
     return out

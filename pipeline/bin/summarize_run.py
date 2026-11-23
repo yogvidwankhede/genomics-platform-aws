@@ -13,7 +13,7 @@ import json
 import sys
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def parse_fastp(path: Path) -> dict:
@@ -89,6 +89,11 @@ def _num(value):
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--sample", required=True)
+    ap.add_argument("--caller", default="gatk")
+    ap.add_argument("--individual")
+    ap.add_argument("--downsample", type=float, default=1.0)
+    ap.add_argument("--seed", type=int, default=100)
+    ap.add_argument("--target-bp", type=int, default=0, help="calling-region size, for mean coverage")
     ap.add_argument("--fastp", type=Path, required=True)
     ap.add_argument("--markdup", type=Path, required=True)
     ap.add_argument("--bcftools-stats", type=Path, required=True)
@@ -98,12 +103,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--output", type=Path, required=True)
     args = ap.parse_args(argv)
 
+    qc = {**parse_fastp(args.fastp), **parse_markdup(args.markdup)}
+    bases = json.loads(args.fastp.read_text()).get("summary", {}).get("after_filtering", {}).get("total_bases")
+    # Approximate: reads overlapping the window edges add a little, duplicates are included.
+    qc["mean_coverage_estimate"] = round(bases / args.target_bp, 2) if bases and args.target_bp else None
     summary = {
         "schema_version": SCHEMA_VERSION,
         "sample": args.sample,
+        "caller": args.caller,
+        "individual": args.individual or args.sample,
+        "downsample": args.downsample,
+        "seed": args.seed,
         "run_name": args.run_name,
         "pipeline_version": args.pipeline_version,
-        "qc": {**parse_fastp(args.fastp), **parse_markdup(args.markdup)},
+        "qc": qc,
         "variants": parse_bcftools_stats(args.bcftools_stats),
         "benchmark": parse_happy(args.happy) if args.happy else None,
     }

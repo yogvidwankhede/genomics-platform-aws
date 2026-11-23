@@ -4,8 +4,7 @@ process BCFTOOLS_FILTER {
     container "${params.container_registry ?: ''}community.wave.seqera.io/library/bcftools_htslib:1.25--130aa7603bf3bf5c"
 
     input:
-    tuple val(meta), path(vcf), path(tbi)
-    val exclude_expr
+    tuple val(meta), path(vcf), path(tbi), val(exclude_expr)
 
     output:
     tuple val(meta), path("${meta.id}.filtered.vcf.gz"), path("${meta.id}.filtered.vcf.gz.tbi"), emit: vcf

@@ -33,6 +33,31 @@ benchmark: benchmark-data ## Run the GIAB benchmark locally (CALLER=gatk|deepvar
 	cd pipeline && nextflow run . -profile benchmark,docker --caller $${CALLER:-gatk} \
 	  --outdir ../data/runs/benchmark-local-$${CALLER:-gatk} -resume
 
+# ---- M7 research benchmark (local, $0 AWS) --------------------------------------------------
+.PHONY: research-data research-matrix research-repro research-analyze test-research research
+RESEARCH_CFG := ../../../research/conf/research.config
+
+research-data: ## Fetch HG001 + HG002/HG003/HG004 reads, GIAB truth and v3.6 stratifications
+	research/scripts/fetch_research_data.sh data/research
+	$(PYTHON) research/scripts/make_matrix.py --out data/research/samplesheet_matrix.csv
+
+research-matrix: ## Run the 28-row x 2-caller experiment matrix (one Nextflow run, resumable)
+	mkdir -p data/launch/matrix && cd data/launch/matrix && \
+	  nextflow -c $(RESEARCH_CFG) run ../../../pipeline -profile docker --outdir ../../runs/research-matrix -resume
+
+research-repro: ## Reproducibility runs: repeat, thread-count and -K on/off (GATK, HG001 benchmark)
+	research/scripts/run_repro.sh
+
+research-analyze: ## Tables + figures for docs/report.md from run outputs
+	cd research/analysis && PYTHONPATH=src ../../$(PYTHON) -m gp_research.analyze matrix \
+	  --results ../../data/runs/research-matrix --data ../../data/research \
+	  --out ../results --figures ../../docs/figures
+
+test-research: ## pytest for the statistics package
+	cd research/analysis && ../../$(PYTHON) -m pytest
+
+research: research-data research-matrix research-repro research-analyze ## Everything above, in order
+
 # ---- terraform quality gates (no AWS credentials needed) -----------------------------------
 .PHONY: tf-fmt tf-validate tf-lint tf-sec tf-test tf-check
 tf-fmt: ## terraform fmt -check
@@ -128,3 +153,7 @@ lint-python: ## ruff lint + format check
 .PHONY: build-api
 build-api: ## Build the API Lambda zip (no-op until services/api exists)
 	PYTHON=$(PYTHON) scripts/build_api.sh
+
+.PHONY: preflight
+preflight: ## Read-only account checks before apply (limits that broke the first deploy)
+	scripts/preflight.sh $(ENV)

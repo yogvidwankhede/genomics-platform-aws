@@ -11,12 +11,13 @@ nextflow_process {
             process {
                 """
                 input[0] = [
-                    [id: 'fixture'],
+                    [id: 'fixture.gatk', sample_id: 'fixture', caller: 'gatk', individual: 'fixture', downsample: 1.0, seed: 100],
                     file("${projectDir}/tests/fixtures/fastp.json", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/markdup.metrics.txt", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/bcftools_stats.txt", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/happy.summary.csv", checkIfExists: true)
                 ]
+                input[1] = 2000000
                 """
             }
         }
@@ -24,7 +25,8 @@ nextflow_process {
             def summary = new groovy.json.JsonSlurper().parse(file(process.out.json[0][1]))
             assertAll(
                 { assert process.success },
-                { assert summary.schema_version == 1 },
+                { assert summary.schema_version == 2 },
+                { assert summary.caller == 'gatk' },
                 { assert summary.sample == 'fixture' },
                 { assert summary.benchmark.SNP.f1 == 0.994382 },
                 { assert summary.variants.snps == 189 },
@@ -38,12 +40,13 @@ nextflow_process {
             process {
                 """
                 input[0] = [
-                    [id: 'fixture'],
+                    [id: 'fixture.gatk', sample_id: 'fixture', caller: 'gatk', individual: 'fixture', downsample: 1.0, seed: 100],
                     file("${projectDir}/tests/fixtures/fastp.json", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/markdup.metrics.txt", checkIfExists: true),
                     file("${projectDir}/tests/fixtures/bcftools_stats.txt", checkIfExists: true),
                     []
                 ]
+                input[1] = 0
                 """
             }
         }

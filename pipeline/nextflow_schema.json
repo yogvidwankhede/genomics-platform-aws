@@ -85,12 +85,9 @@
             "properties": {
                 "caller": {
                     "type": "string",
+                    "description": "Caller(s), comma-separated: gatk, deepvariant, or gatk,deepvariant (both run on the same alignments).",
                     "default": "gatk",
-                    "enum": [
-                        "gatk",
-                        "deepvariant"
-                    ],
-                    "description": "Germline caller."
+                    "pattern": "^(gatk|deepvariant)(,(gatk|deepvariant))*$"
                 },
                 "filter_expr": {
                     "type": "string",
@@ -100,6 +97,12 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Skip FastQC on raw reads."
+                },
+                "bwamem2_batch_bases": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 100000000,
+                    "description": "bwa-mem2 -K (input bases per batch). Fixed so alignments are independent of thread count; 0 uses the tool's thread-dependent default."
                 }
             }
         },
@@ -118,6 +121,12 @@
                     "format": "file-path",
                     "exists": true,
                     "description": "Confident-region BED for the truth set."
+                },
+                "stratification": {
+                    "type": "string",
+                    "format": "directory-path",
+                    "exists": true,
+                    "description": "Directory with strata.tsv (name<TAB>bed) + BEDs for hap.py stratified metrics (e.g. GIAB v3.6)."
                 }
             }
         },

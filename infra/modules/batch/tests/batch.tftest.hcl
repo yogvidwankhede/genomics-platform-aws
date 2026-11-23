@@ -67,3 +67,22 @@ run "head_job_retries_spot_reclaim_and_times_out" {
     error_message = "head job retries Spot reclaims"
   }
 }
+
+run "aws_cli_wrapper_renders_correctly" {
+  command = plan
+
+  # The wrapper is shell inside a Terraform heredoc. A doubled "$$@" reached the shell as the
+  # PID and broke every S3 transfer on AWS, so assert the *rendered* script, not the source.
+  assert {
+    condition     = strcontains(base64decode(aws_launch_template.compute.user_data), "exec /opt/aws-cli/bin/aws.real \"$@\"")
+    error_message = "wrapper must forward arguments with \"$@\""
+  }
+  assert {
+    condition     = strcontains(base64decode(aws_launch_template.compute.user_data), "$${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}")
+    error_message = "wrapper must prepend the bundled lib dir to LD_LIBRARY_PATH"
+  }
+  assert {
+    condition     = !strcontains(base64decode(aws_launch_template.compute.user_data), "$$")
+    error_message = "no doubled dollar signs may survive rendering"
+  }
+}

@@ -5,6 +5,7 @@ process SUMMARIZE_RUN {
 
     input:
     tuple val(meta), path(fastp_json), path(markdup_metrics), path(bcftools_stats), path(happy_summary)
+    val target_bp
 
     output:
     tuple val(meta), path("${meta.id}.run_summary.json"), emit: json
@@ -13,7 +14,12 @@ process SUMMARIZE_RUN {
     def happy_arg = happy_summary ? "--happy ${happy_summary}" : ''
     """
     summarize_run.py \\
-        --sample ${meta.id} \\
+        --sample ${meta.sample_id} \\
+        --caller ${meta.caller} \\
+        --individual ${meta.individual} \\
+        --downsample ${meta.downsample} \\
+        --seed ${meta.seed} \\
+        --target-bp ${target_bp} \\
         --fastp ${fastp_json} \\
         --markdup ${markdup_metrics} \\
         --bcftools-stats ${bcftools_stats} \\
@@ -25,6 +31,6 @@ process SUMMARIZE_RUN {
 
     stub:
     """
-    echo '{"sample": "${meta.id}"}' > ${meta.id}.run_summary.json
+    echo '{"sample": "${meta.sample_id}", "caller": "${meta.caller}"}' > ${meta.id}.run_summary.json
     """
 }
