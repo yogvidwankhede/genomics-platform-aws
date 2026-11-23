@@ -16,7 +16,12 @@ ENV NXF_HOME=/opt/nextflow-home \
     NXF_ANSI_LOG=false \
     PIPELINE_DIR=/opt/pipeline
 
+# The base image bundles a Docker CLI (used for local docker executors only) and a second copy
+# of the framework under /.nextflow. Neither is used by an awsbatch head job; removing them
+# drops 5 CRITICAL / 68 HIGH Trivy findings and ~150 MB.
 RUN nextflow plugin install nf-schema@${NF_SCHEMA_VERSION},nf-amazon@${NF_AMAZON_VERSION} \
+ && rm -f /usr/local/bin/docker \
+ && rm -rf /.nextflow \
  && mkdir -p /work \
  && chmod -R a+rX ${NXF_HOME} \
  && chmod a+rwx /work
