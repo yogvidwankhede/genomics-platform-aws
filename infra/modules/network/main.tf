@@ -44,6 +44,7 @@ resource "aws_route_table_association" "private" {
 
 # ---- security groups ------------------------------------------------------------------------
 resource "aws_security_group" "endpoints" {
+  #checkov:skip=CKV2_AWS_5:Attached to every aws_vpc_endpoint.interface instance (for_each), which the graph check cannot follow.
   name        = "${var.name}-vpce"
   description = "Interface endpoints: HTTPS from inside the VPC"
   vpc_id      = aws_vpc.this.id
@@ -60,6 +61,7 @@ resource "aws_vpc_security_group_ingress_rule" "endpoints_https" {
 }
 
 resource "aws_security_group" "compute" {
+  #checkov:skip=CKV2_AWS_5:Exported and attached to the Batch compute environment in infra/modules/batch (via infra/platform).
   name        = "${var.name}-batch-compute"
   description = "Batch instances: no ingress, HTTPS egress to endpoints and S3 only"
   vpc_id      = aws_vpc.this.id
