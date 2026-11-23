@@ -14,8 +14,23 @@ if [[ "${1:-}" == "--help" ]]; then
 fi
 
 echo "{\"event\":\"head_start\",\"run_log_uri\":\"${RUN_LOG_URI:-}\",\"args\":\"$*\"}"
+
+# -resume needs the previous session id, which Nextflow keeps in .nextflow/history in the
+# launch dir. Each head container starts empty, so restore/save it next to the S3 task cache.
+if [[ -n "${NXF_CLOUDCACHE_PATH:-}" ]]; then
+  mkdir -p .nextflow
+  if nextflow fs cp "${NXF_CLOUDCACHE_PATH%/}/history" .nextflow/history >/dev/null 2>&1; then
+    echo '{"event":"history_restored"}'
+  fi
+fi
+
 nextflow run "${PIPELINE_DIR}" "$@"
 status=$?
+
+if [[ -n "${NXF_CLOUDCACHE_PATH:-}" && -f .nextflow/history ]]; then
+  nextflow fs cp .nextflow/history "${NXF_CLOUDCACHE_PATH%/}/history" >/dev/null 2>&1 \
+    || echo '{"event":"history_upload_failed"}'
+fi
 
 if [[ -n "${RUN_LOG_URI:-}" && -f .nextflow.log ]]; then
   nextflow fs cp .nextflow.log "${RUN_LOG_URI%/}/nextflow.log" \
