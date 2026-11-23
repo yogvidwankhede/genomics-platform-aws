@@ -7,6 +7,25 @@ release-please from Conventional Commits on `main`.
 
 ## [Unreleased]
 
+### Added
+- **Research benchmark (M7):** experiment-matrix runs (per-row truth sets, seeded downsampling,
+  `--caller gatk,deepvariant` on shared alignments, GIAB v3.6 stratified hap.py), the
+  `gp_research` statistics package (block-bootstrap CIs, exact McNemar, trio Mendelian
+  consistency, titration, cost vs accuracy), reproducibility runs, and a paper-style report.
+- `make preflight`: read-only account checks (Lambda concurrency, Spot quota, Free-plan
+  instance eligibility, state bucket).
+- First real AWS deployment results and a blameless post-mortem.
+
+### Fixed (found on the first AWS deployment)
+- Free-plan instance eligibility and quotas: Batch instance types and per-task caps are now
+  configuration.
+- Lambda reserved concurrency is optional (new accounts reject reservations).
+- CloudTrail waits for the logs bucket policy; EC2 may use the data key for EBS.
+- Head image bakes `nf-cloudcache`; `-resume` history is persisted to S3.
+- The AWS CLI mounted into tasks bundles libz; Terraform `$` escaping in user-data.
+- Truth `.tbi` resolution kept the `s3://` scheme; reruns are tracked by job id.
+- The Batch compute environment ignores `desired_vcpus` drift.
+
 ## [0.1.0] - initial platform
 
 ### Added
