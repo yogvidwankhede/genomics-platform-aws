@@ -7,21 +7,28 @@ against the **GIAB HG001** truth set with **hap.py**, running on **AWS Batch (Sp
 NAT-less VPC built with **Terraform**, triggered by S3 uploads, and shipped through
 **GitHub Actions with OIDC**.
 
-> **Status:** the pipeline, infrastructure code, Lambdas, API and CI are built and tested
-> locally and in CI. **Nothing has been deployed to AWS yet.** See [RESULTS.md](RESULTS.md)
-> for exactly what has run and where.
+> **Status:** built, tested, and **run end to end on AWS** (a new Free-plan account, Batch Spot,
+> 2026-11-23), then torn down. Every number below comes from [RESULTS.md](RESULTS.md), which
+> records where each one was measured. The research benchmark (M7) is in
+> [docs/report.md](docs/report.md).
 
-## Headline result (local run, see RESULTS.md)
+## Headline results
 
 GIAB HG001, chr20:10-12 Mb, 30x HiSeq X, NISTv4.2.1 truth, hap.py on PASS calls:
 
-| Caller | SNP F1 | INDEL F1 |
-|---|---:|---:|
-| GATK HaplotypeCaller 4.7.0.0 | 0.9981 | 0.9802 |
-| DeepVariant 1.10.0 | 0.9992 | 0.9876 |
+| Caller | Where | SNP F1 | INDEL F1 | Wall time |
+|---|---|---:|---:|---:|
+| GATK HaplotypeCaller 4.7.0.0 | laptop (Docker) | 0.9981 | 0.9802 | 1 m 57 s |
+| GATK HaplotypeCaller 4.7.0.0 | **AWS Batch Spot**, event-triggered platform | **0.9981** | **0.9802** | 11 m 44 s |
+| DeepVariant 1.10.0 | laptop (Docker) | 0.9992 | 0.9876 | n/a |
 
-Full pipeline (FASTQ to hap.py and MultiQC, including indexing chr20) took **1 m 57 s** wall
-time on a laptop with GATK.
+- **AWS vs local:** identical hap.py results from the same FASTQs.
+- **AWS wall time:** 88% of task time on AWS was scheduling, instance start-up and S3 staging,
+  which is the real cost driver at this data size.
+- **Resume:** a rerun was served entirely from the S3 task cache (14/14 cached, 14.5 s).
+- **Teardown:** the stack was destroyed with one command (142 resources).
+- **Post-mortem:** what broke on the first real deployment and how each issue is now guarded:
+  [docs/postmortem-first-aws-deployment.md](docs/postmortem-first-aws-deployment.md).
 
 ## Architecture
 
@@ -94,10 +101,35 @@ Results land in `data/runs/benchmark-local-<caller>/`: `benchmark/HG001/*.summar
 (hap.py), `multiqc/multiqc_report.html`, `summary/HG001.run_summary.json`, and
 `pipeline_info/` (trace, timeline, report, DAG).
 
+## Research benchmark (M7)
+
+The pipeline runs the whole experiment matrix (samples × depths × seeds × callers) as **one
+Nextflow run**: each samplesheet row can carry its own truth set and a seeded downsampling
+fraction, and `--caller gatk,deepvariant` calls the same alignments with both callers. The
+experiment covers:
+
+- **Samples:** HG001 plus the GIAB Ashkenazi trio (HG002/HG003/HG004), 28 alignments and
+  56 call sets in total.
+- **Coverage titration:** 5x, 10x, 15x, 20x and 30x, with 3 seeds at each downsampled depth.
+- **Statistics:** GIAB v3.6 difficult-region stratification, block-bootstrap 95% CIs, exact
+  McNemar paired tests, and trio Mendelian consistency.
+- **Cost and reproducibility:** cost vs accuracy from Nextflow traces; reproducibility checks
+  across reruns, thread counts, BWA-MEM2 `-K`, and laptop vs AWS.
+
+Write-up: [docs/report.md](docs/report.md). Everything runs locally at $0 cloud cost:
+
+```bash
+make research
+```
+
+`make research` runs data → matrix → reproducibility → tables and figures (several hours on a
+laptop). `make test-research` runs the statistics unit tests.
+
 ## Deploying to AWS
 
 Step-by-step, including the cost check before every apply, is in
-[docs/runbook.md](docs/runbook.md#deploy). In short:
+[docs/runbook.md](docs/runbook.md#deploy). Run `make preflight ENV=dev` first: it is
+read-only and checks the account limits that broke the first deployment. In short:
 
 ```bash
 make bootstrap-plan
@@ -138,7 +170,7 @@ make destroy ENV=dev
 
 ## Cost
 
-Cost guard-rails are Spot only, scale to zero, a 16 vCPU ceiling in dev, no NAT, a 4 h head-job
+Cost guard-rails are Spot only, scale to zero, a vCPU ceiling (4 in dev), no NAT, a 4 h head-job
 timeout, a $10/month AWS Budget with SNS and email alerts, and a one-command `make destroy`.
 The interface endpoints are the only thing billed while idle (8 × $0.01/h in dev), so
 **destroy dev when you are done**.
@@ -147,7 +179,8 @@ The interface endpoints are the only thing billed while idle (8 × $0.01/h in de
 |---|---|---|
 | Estimated cost per benchmark run | ≈ $0.23 (pessimistic: one 8-vCPU Spot instance for 1 h) | `scripts/cost_estimate.py` (list-price assumptions) |
 | Estimated idle cost while deployed | ≈ $0.09/h (dev) | same |
-| **Measured** cost per run on AWS | **not yet measured** | will come from Cost Explorer after M3 |
+| **Measured** cost of the AWS session (~1.5 h up, 4 attempts, 1 full run) | **not yet measured** (Cost Explorer lags ~24 h) | will be added to RESULTS.md |
+| Measured compute of the AWS run | 0.096 allocated CPU-hours; 88% of task wall time was overhead | Nextflow trace (RESULTS.md) |
 
 Details: [docs/cost-model.md](docs/cost-model.md).
 
@@ -161,8 +194,10 @@ infra/platform/      the one root module; envs/{dev,prod}.{tfvars,backend.hcl}
 services/trigger/    Lambda handlers + shared SubmitJob builder + operator CLI
 services/api/        FastAPI read API
 containers/          offline Nextflow head image
-scripts/             data fetch, image mirroring, packaging, cost estimate
-docs/                runbook, ADRs, cost model, branch protection
+research/            M7 benchmark: data fetch, matrix design, reproducibility runs,
+                     gp_research statistics package (+ tests), config
+scripts/             data fetch, image mirroring, packaging, cost estimate, preflight
+docs/                report, runbook, ADRs, cost model, post-mortem, branch protection
 ```
 
 ## License
