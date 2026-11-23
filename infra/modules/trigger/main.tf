@@ -347,14 +347,15 @@ resource "aws_lambda_function" "fn" {
 resource "aws_lambda_function" "api" {
   #checkov:skip=CKV_AWS_117:Read-only API over DynamoDB/S3; no VPC resources to reach.
   #checkov:skip=CKV_AWS_272:Code signing is out of scope; artifacts are built in CI from the reviewed commit.
-  function_name                  = "${var.name}-api"
-  description                    = "Read-only REST API: runs, QC metrics, variant summaries"
-  role                           = aws_iam_role.fn["api"].arn
-  runtime                        = "python3.13"
-  architectures                  = ["arm64"]
-  handler                        = "gp_api.lambda_handler.handler"
-  filename                       = var.api_package_path
-  source_code_hash               = filebase64sha256(var.api_package_path)
+  function_name = "${var.name}-api"
+  description   = "Read-only REST API: runs, QC metrics, variant summaries"
+  role          = aws_iam_role.fn["api"].arn
+  runtime       = "python3.13"
+  architectures = ["arm64"]
+  handler       = "gp_api.lambda_handler.handler"
+  filename      = var.api_package_path
+  # fileexists() keeps `make destroy` working on a checkout that never built the zip.
+  source_code_hash               = fileexists(var.api_package_path) ? filebase64sha256(var.api_package_path) : null
   timeout                        = 15
   memory_size                    = 512
   reserved_concurrent_executions = 5

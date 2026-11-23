@@ -33,6 +33,12 @@ variable "owner" {
   default     = "yogvid"
 }
 
+variable "force_destroy_state" {
+  description = "Teardown only: allow destroying the state bucket with its object versions."
+  type        = bool
+  default     = false
+}
+
 variable "create_github_oidc_provider" {
   description = "Set false if the account already has the token.actions.githubusercontent.com provider."
   type        = bool

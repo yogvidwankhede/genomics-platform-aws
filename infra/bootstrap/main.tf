@@ -50,7 +50,8 @@ resource "aws_s3_bucket" "state" {
   #checkov:skip=CKV_AWS_18:State bucket access is audited through CloudTrail data events, not S3 access logs.
   #checkov:skip=CKV_AWS_144:Cross-region replication is out of scope for a single-region portfolio account.
   #checkov:skip=CKV2_AWS_62:No consumers for state-bucket event notifications.
-  bucket = local.state_bucket
+  bucket        = local.state_bucket
+  force_destroy = var.force_destroy_state
 }
 
 resource "aws_s3_bucket_versioning" "state" {
