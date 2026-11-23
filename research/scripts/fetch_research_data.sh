@@ -61,6 +61,16 @@ for S in HG001 HG002 HG003 HG004; do
   [[ -s "$OUT/truth/${S}.bed" ]] || curl -fsSL "$(truth_bed "$S")" | clip_bed > "$OUT/truth/${S}.bed"
 done
 
+echo "[truth] normalise (left-align + trim + split, like the pipeline's calls)"
+mkdir -p "$OUT/truth_norm"
+run "$BCFTOOLS_IMG" bash -c "
+  set -euo pipefail
+  for s in HG001 HG002 HG003 HG004; do
+    [[ -s truth_norm/\$s.vcf.gz ]] && continue
+    bcftools norm -f ${CHR}.fa -m -any --check-ref w -Oz -o truth_norm/\$s.vcf.gz truth/\$s.vcf.gz
+    bcftools index -t truth_norm/\$s.vcf.gz
+  done"
+
 echo "[strata] GIAB v3.6"
 # name <TAB> path relative to the stratification directory (hap.py --stratification format)
 STRATA="alldifficult:Union/GRCh38_alldifficultregions.bed.gz

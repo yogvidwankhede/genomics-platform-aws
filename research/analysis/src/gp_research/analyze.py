@@ -190,11 +190,18 @@ def mendelian_table(results: Path, data: Path) -> pd.DataFrame:
     trio = {"child": "HG002", "father": "HG003", "mother": "HG004"}
     if not all((data / "truth" / f"{s}.bed").exists() for s in trio.values()):
         return pd.DataFrame()
+    # GIAB VCFs are not trimmed/left-aligned identically across samples (the same indel can be
+    # AAAAT>A in one and AAAATAAA>AAAAT in another), so compare bcftools-normalised truth sets,
+    # exactly like the pipeline normalises its calls. Raw truth gave a spurious 1% violation rate.
+    truth_dir = data / "truth_norm" if (data / "truth_norm").is_dir() else data / "truth"
     regions = Regions(intersect(*(read_bed(data / "truth" / f"{s}.bed") for s in trio.values())))
     rows = []
     # baseline: the GIAB truth sets themselves (should be ~0 by construction)
-    g = {role: read_genotypes(data / "truth" / f"{s}.vcf.gz", pass_only=False) for role, s in trio.items()}
-    rows.append({"callset": "GIAB v4.2.1 truth", **mendelian_violations(g["child"], g["father"], g["mother"], regions)})
+    g = {role: read_genotypes(truth_dir / f"{s}.vcf.gz", pass_only=False) for role, s in trio.items()}
+    label = "GIAB v4.2.1 truth (normalised)" if truth_dir.name == "truth_norm" else "GIAB v4.2.1 truth (raw)"
+    truth = mendelian_violations(g["child"], g["father"], g["mother"], regions)
+    truth_sites = truth.pop("violating_sites")
+    rows.append({"callset": label, **truth, "shared_with_truth": len(truth_sites), "caller_only": 0})
     for caller in ("gatk", "deepvariant"):
         paths = {
             role: results / "variants" / f"{s}_30x.{caller}" / f"{s}_30x.{caller}.filtered.vcf.gz"
@@ -203,8 +210,17 @@ def mendelian_table(results: Path, data: Path) -> pd.DataFrame:
         if not all(p.exists() for p in paths.values()):
             continue
         g = {role: read_genotypes(p) for role, p in paths.items()}
+        res = mendelian_violations(g["child"], g["father"], g["mother"], regions)
+        sites = res.pop("violating_sites")
+        # Violations also present in the independent truth sets reflect the samples (e.g. cell-line
+        # variants), not the caller; the caller-attributable error is what remains.
         rows.append(
-            {"callset": CALLER_LABEL[caller], **mendelian_violations(g["child"], g["father"], g["mother"], regions)}
+            {
+                "callset": CALLER_LABEL[caller],
+                **res,
+                "shared_with_truth": len(sites & truth_sites),
+                "caller_only": len(sites - truth_sites),
+            }
         )
     return pd.DataFrame(rows)
 
@@ -285,33 +301,38 @@ def fig_titration(runs: pd.DataFrame, out: Path) -> None:
     plt.close(fig)
 
 
+MIN_STRATUM_N = 20
+
+
 def fig_strata(strata: pd.DataFrame, out: Path) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4.5), sharey=True)
+    """F1 per stratum, pooled over HG001+HG002 at 30x. Bars carry the truth count; strata with
+    fewer than MIN_STRATUM_N truth variants are greyed out (too few to interpret)."""
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5), sharey=True)
     for ax, vtype in zip(axes, ("SNP", "INDEL"), strict=True):
-        d = strata[strata.type == vtype].groupby(["stratum", "caller"])[["tp", "fn", "fp"]].sum().reset_index()
+        d = strata[strata.type == vtype].groupby(["stratum", "caller"])[["truth_total", "tp", "fn", "fp"]].sum()
+        d = d.reset_index()
         d["recall"] = d.tp / (d.tp + d.fn)
         d["precision"] = d.tp / (d.tp + d.fp)
         d["f1"] = 2 * d.recall * d.precision / (d.recall + d.precision)
         order = [s for s in STRATA_ORDER if s in set(d.stratum)]
-        x = range(len(order))
-        for i, caller in enumerate(("gatk", "deepvariant")):
-            vals = [
-                d[(d.stratum == s) & (d.caller == caller)]["f1"].squeeze()
-                if not d[(d.stratum == s) & (d.caller == caller)].empty
-                else math.nan
-                for s in order
-            ]
-            ax.bar(
-                [xi + (i - 0.5) * 0.4 for xi in x],
-                vals,
-                width=0.4,
-                color=CALLER_COLOR[caller],
-                label=CALLER_LABEL[caller],
-            )
-        ax.set_xticks(list(x))
+        for xi, stratum in enumerate(order):
+            n = int(d[d.stratum == stratum].truth_total.max())
+            small = n < MIN_STRATUM_N
+            for i, caller in enumerate(("gatk", "deepvariant")):
+                row = d[(d.stratum == stratum) & (d.caller == caller)]
+                val = float(row.f1.iloc[0]) if not row.empty and n > 0 else math.nan
+                ax.bar(
+                    xi + (i - 0.5) * 0.4,
+                    0 if math.isnan(val) else val,
+                    width=0.4,
+                    color="#bbbbbb" if small else CALLER_COLOR[caller],
+                    label=CALLER_LABEL[caller] if xi == 0 else None,
+                )
+            ax.text(xi, 1.03, f"n={n}" + ("\n(n<20)" if small else ""), ha="center", fontsize=7)
+        ax.set_xticks(range(len(order)))
         ax.set_xticklabels(order, rotation=35, ha="right", fontsize=8)
-        ax.set_title(f"{vtype} F1 by GIAB v3.6 stratum (HG001+HG002, 30x, pooled)")
-        ax.set_ylim(0, 1.02)
+        ax.set_title(f"{vtype}: F1 by GIAB v3.6 stratum (HG001+HG002, 30x)", fontsize=10)
+        ax.set_ylim(0, 1.12)
         ax.grid(axis="y", alpha=0.3)
     axes[0].set_ylabel("F1")
     axes[0].legend(fontsize=8, loc="lower left")
@@ -322,23 +343,17 @@ def fig_strata(strata: pd.DataFrame, out: Path) -> None:
 
 def fig_cost(runs: pd.DataFrame, cost: pd.DataFrame, out: Path) -> None:
     d = runs[runs.type == "INDEL"].merge(cost, on=["sample", "caller"])
-    fig, ax = plt.subplots(figsize=(6.5, 4.5))
+    fig, ax = plt.subplots(figsize=(7, 4.8))
     for caller in ("gatk", "deepvariant"):
         c = d[d.caller == caller]
-        ax.scatter(c.cpu_hours, c.f1, color=CALLER_COLOR[caller], label=CALLER_LABEL[caller], alpha=0.8)
-        for _, r in c[c.seed == 100].iterrows():
-            ax.annotate(
-                f"{r['individual']} {r['depth']}x",
-                (r.cpu_hours, r.f1),
-                fontsize=7,
-                xytext=(3, 3),
-                textcoords="offset points",
-            )
-    ax.set_xlabel("allocated CPU-hours per sample (Nextflow trace, local)")
+        ax.scatter(c.cpu_hours, c.f1, s=c.depth * 6, color=CALLER_COLOR[caller], label=CALLER_LABEL[caller], alpha=0.7)
+    for depth in (5, 10, 15, 20, 30):
+        ax.scatter([], [], s=depth * 6, color="#888888", alpha=0.5, label=f"{depth}x")
+    ax.set_xlabel("allocated CPU-hours per sample (Nextflow trace, local Docker)")
     ax.set_ylabel("INDEL F1")
-    ax.set_title("Compute vs INDEL accuracy")
+    ax.set_title("Compute vs INDEL accuracy (marker size = nominal coverage)")
     ax.grid(alpha=0.3)
-    ax.legend(fontsize=8)
+    ax.legend(fontsize=7, ncol=2, loc="lower right")
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     plt.close(fig)

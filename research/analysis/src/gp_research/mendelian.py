@@ -68,10 +68,11 @@ def mendelian_violations(
     """Count sites (non-ref in any member, inside `regions`) violating Mendelian inheritance."""
     sites = {k for g in (child, father, mother) for k in g if regions.contains(k[0], k[1])}
     ref = (0, 0)
-    violations = [k for k in sites if not is_consistent(child.get(k, ref), father.get(k, ref), mother.get(k, ref))]
+    violations = {k for k in sites if not is_consistent(child.get(k, ref), father.get(k, ref), mother.get(k, ref))}
     n = len(sites)
     return {
         "sites": n,
         "violations": len(violations),
         "violation_rate": len(violations) / n if n else float("nan"),
+        "violating_sites": violations,
     }

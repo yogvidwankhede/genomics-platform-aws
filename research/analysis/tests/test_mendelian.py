@@ -30,4 +30,9 @@ def test_violation_rate_with_missing_as_ref():
     mother = {}
     out = mendelian_violations(child, father, mother, regions)
     # site 20: child het, both parents (missing => 0/0) -> violation; site 5000 outside regions
-    assert out == {"sites": 2, "violations": 1, "violation_rate": 0.5}
+    assert out == {
+        "sites": 2,
+        "violations": 1,
+        "violation_rate": 0.5,
+        "violating_sites": {("chr1", 20, "C", "T")},
+    }

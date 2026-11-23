@@ -43,7 +43,7 @@ research-data: ## Fetch HG001 + HG002/HG003/HG004 reads, GIAB truth and v3.6 str
 
 research-matrix: ## Run the 28-row x 2-caller experiment matrix (one Nextflow run, resumable)
 	mkdir -p data/launch/matrix && cd data/launch/matrix && \
-	  nextflow -c $(RESEARCH_CFG) run ../../../pipeline -profile docker -resume
+	  nextflow -c $(RESEARCH_CFG) run ../../../pipeline -profile docker --outdir ../../runs/research-matrix -resume
 
 research-repro: ## Reproducibility runs: repeat, thread-count and -K on/off (GATK, HG001 benchmark)
 	research/scripts/run_repro.sh
