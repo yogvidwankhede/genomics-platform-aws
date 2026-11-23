@@ -66,6 +66,12 @@ variable "force_destroy" {
   default     = false
 }
 
+variable "reserve_lambda_concurrency" {
+  description = "Reserve per-function Lambda concurrency (needs an account limit above the default 10 of new accounts)."
+  type        = bool
+  default     = true
+}
+
 variable "enable_cloudtrail" {
   description = "Create the account trail from this environment."
   type        = bool

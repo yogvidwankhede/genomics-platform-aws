@@ -321,7 +321,7 @@ resource "aws_lambda_function" "fn" {
   source_code_hash               = data.archive_file.trigger.output_base64sha256
   timeout                        = each.value.timeout
   memory_size                    = 256
-  reserved_concurrent_executions = each.value.concurrency
+  reserved_concurrent_executions = var.reserve_concurrency ? each.value.concurrency : -1
   kms_key_arn                    = var.kms_key_arn
 
   environment {
@@ -358,7 +358,7 @@ resource "aws_lambda_function" "api" {
   source_code_hash               = fileexists(var.api_package_path) ? filebase64sha256(var.api_package_path) : null
   timeout                        = 15
   memory_size                    = 512
-  reserved_concurrent_executions = 5
+  reserved_concurrent_executions = var.reserve_concurrency ? 5 : -1
   kms_key_arn                    = var.kms_key_arn
 
   environment {
