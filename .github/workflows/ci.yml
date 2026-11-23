@@ -34,14 +34,18 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: ruff
         run: |
-          ruff check services pipeline/bin scripts
-          ruff format --check services pipeline/bin scripts
+          ruff check services pipeline/bin scripts research
+          ruff format --check services pipeline/bin scripts research
       - name: pytest (trigger Lambdas)
         working-directory: services/trigger
         run: pytest --cov=gp_trigger --cov-report=term --cov-fail-under=80
       - name: pytest (API)
         working-directory: services/api
         run: pytest --cov=gp_api --cov-report=term --cov-fail-under=90
+      - name: pytest (research statistics)
+        run: |
+          pip install -r research/requirements.txt
+          cd research/analysis && pytest
 
   nextflow:
     name: nextflow (lint + stub + nf-test)
